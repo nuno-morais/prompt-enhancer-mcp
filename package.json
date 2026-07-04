@@ -1,0 +1,46 @@
+{
+  "name": "@nuno-morais/prompt-enhancer-mcp",
+  "version": "0.1.0",
+  "description": "Local MCP server that optimizes rough prompt drafts using a local Ollama model",
+  "author": "Nuno Morais",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nuno-morais/prompt-enhancer-mcp.git"
+  },
+  "files": [
+    "dist",
+    "docs"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "mcp": "dist/bin/mcp.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "start-http": "node dist/server.js",
+    "proxy": "node bin/http-proxy.js",
+    "test-proxy": "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"optimize_prompt\",\"params\":{\"draft\":\"quero um resumo curto\"}}' | node bin/http-proxy.js",
+    "test": "vitest run",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "commander": "^12.0.0",
+    "cosmiconfig": "^9.0.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.0",
+    "@commitlint/config-conventional": "^21.2.0",
+    "@types/node": "^22.0.0",
+    "husky": "^9.1.7",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

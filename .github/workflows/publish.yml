@@ -1,0 +1,46 @@
+name: Publish to NPM
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write # Needed for semantic-release to create tags and releases
+  issues: write # Needed to comment on issues (optional but good)
+  pull-requests: write # Needed to comment on PRs
+  id-token: write # Needed for NPM Trusted Publishing (OIDC / Provenance)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for semantic-release to read commit history
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Project
+        run: npm run build
+
+      - name: Run Tests
+        run: npm test
+
+      - name: Semantic Release
+        if: github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+        run: npx semantic-release

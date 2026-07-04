@@ -1,0 +1,141 @@
+import { getMetaPromptConfig, type TargetModel } from "./meta-prompts.js";
+import { ollamaChat } from "./ollama-client.js";
+import { extractCodeBlock } from "./extract-code-block.js";
+
+const CRITIC_SYSTEM_PROMPT = `
+You are a meticulous Prompt Engineering reviewer. You will receive the ORIGINAL
+user draft and a FIRST DRAFT of an optimized prompt produced from it, both
+delimited by tags below. Your job is to produce a FINAL, IMPROVED version of
+the optimized prompt.
+
+Check the first draft for: ambiguity, missing context the target model would
+need, unstated assumptions, and requirements implied by the original draft but
+missing from the first draft. Fix what's wrong; keep what's already good.
+Do not change the prompt's overall format or structure (e.g. XML tags, JSON
+request, persona instructions) unless it is factually wrong for the stated goal.
+
+STRICT RULES (must not be broken):
+1. Your response must contain ONLY the final optimized prompt, inside a
+   markdown code block with a language qualifier (e.g. \`\`\`text), and nothing else.
+2. NEVER write text before or after the code block.
+3. NEVER add commentary about what you changed. Just output the final prompt.
+
+<original_draft>
+{{original_draft}}
+</original_draft>
+
+<first_draft_prompt>
+{{first_draft_prompt}}
+</first_draft_prompt>
+
+Now output the final, improved prompt.
+`;
+
+const EXPLAIN_SYSTEM_PROMPT = `
+You are a technical writer. You will be given DRAFT A and DRAFT B, both
+versions of an optimized prompt for an AI model, delimited by tags below.
+Describe in ONE short sentence what changed from A to B. Focus on
+substantive differences (added constraints, fixed ambiguity, structural
+changes) — ignore purely cosmetic wording changes.
+
+STRICT RULES:
+1. Output ONLY the one-sentence summary. No preamble, no code block, no quotes.
+2. If A and B are effectively identical, say so explicitly (e.g. "No substantive changes.").
+
+<draft_a>
+{{draft_a}}
+</draft_a>
+
+<draft_b>
+{{draft_b}}
+</draft_b>
+`;
+
+const SKIP_CRITIC_EXPLANATION = "No critic pass (trivial draft).";
+
+export type ProgressCallback = (step: number, total: number, message: string) => void;
+
+function isTrivialDraft(draft: string, targetModel: TargetModel, brainstorm: boolean): boolean {
+  const wordCount = draft.trim().split(/\s+/).filter(Boolean).length;
+  return targetModel === "generic" && brainstorm === false && wordCount <= 15;
+}
+
+export async function generateOptimizedPrompt(
+  params: {
+    draft: string;
+    target_model: TargetModel;
+    brainstorm: boolean;
+    explain: boolean;
+    model: string;
+  },
+  onProgress?: ProgressCallback
+): Promise<{ optimizedPrompt: string; explanation?: string }> {
+  const willRunCritic = !isTrivialDraft(params.draft, params.target_model, params.brainstorm);
+  const total = willRunCritic ? (params.explain ? 3 : 2) : (params.explain ? 1 : 0);
+
+  const { systemPrompt, params: ollamaParams } = getMetaPromptConfig(params.target_model, params.brainstorm);
+
+  if (total > 0) {
+    onProgress?.(1, total, "Generating initial draft...");
+  }
+
+  const firstResponse = await ollamaChat({
+    model: params.model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: `<user_draft>\n${params.draft}\n</user_draft>` }
+    ],
+    stream: false,
+    options: ollamaParams
+  });
+  const firstDraftPrompt = extractCodeBlock(firstResponse.message.content);
+
+  if (!willRunCritic) {
+    return {
+      optimizedPrompt: firstDraftPrompt,
+      explanation: params.explain ? SKIP_CRITIC_EXPLANATION : undefined
+    };
+  }
+
+  onProgress?.(2, total, "Reviewing draft with critic pass...");
+
+  const criticPrompt = CRITIC_SYSTEM_PROMPT
+    .split("{{first_draft_prompt}}").join(firstDraftPrompt)
+    .split("{{original_draft}}").join(params.draft);
+
+  const secondResponse = await ollamaChat({
+    model: params.model,
+    messages: [
+      { role: "system", content: criticPrompt },
+      { role: "user", content: "Run the critique process and provide the final optimized prompt now." }
+    ],
+    stream: false,
+    options: ollamaParams
+  });
+  const finalPrompt = extractCodeBlock(secondResponse.message.content);
+
+  if (!params.explain) {
+    return { optimizedPrompt: finalPrompt };
+  }
+
+  onProgress?.(3, total, "Generating change summary...");
+
+  const explainPrompt = EXPLAIN_SYSTEM_PROMPT
+    .split("{{draft_a}}").join(firstDraftPrompt)
+    .split("{{draft_b}}").join(finalPrompt);
+
+  const explainResponse = await ollamaChat({
+    model: params.model,
+    messages: [
+      { role: "system", content: explainPrompt },
+      { role: "user", content: "Provide the one-sentence summary now." }
+    ],
+    stream: false,
+    options: ollamaParams
+  });
+
+  return {
+    optimizedPrompt: finalPrompt,
+    explanation: explainResponse.message.content.trim()
+  };
+}

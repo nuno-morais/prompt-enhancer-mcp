@@ -1,0 +1,193 @@
+# Prompt Enhancer MCP
+
+Local MCP server that uses a local Ollama model as a "Prompt Engineer" to
+rewrite rough prompt drafts into structured, optimized prompts before you
+send them to a paid API (Claude, GPT-4o, etc.) — saving tokens and improving
+output quality on the paid model.
+
+Every request runs a self-critique pipeline (generate a first draft, then
+have the local model critique and refine it) unless the draft is trivial
+enough to skip the critique pass. Optional features layer on top: multi-persona
+brainstorming, a 1-line summary of what the critic changed, an in-memory
+response cache, and per-project default presets.
+
+## Prerequisites
+
+- Node.js 20+
+- [Ollama](https://ollama.com) running locally with a model pulled, e.g.:
+  ```bash
+  ollama pull qcwind/qwen2.5-7B-instruct-Q4_K_M
+  ```
+
+## Setup
+
+```bash
+npm install
+npm run build
+npm test
+```
+
+`npm run build` compiles `src/` to `dist/index.js`, which is what MCP clients
+run. Re-run it after pulling changes or editing source.
+
+## CLI Usage
+
+The package ships a global `mcp` command that you can use from the terminal.
+See the full reference in **[docs/cli.md](docs/cli.md)**.
+
+## Register with an MCP client
+
+All MCP clients register a server the same way: point them at
+`node <absolute-path-to-repo>/dist/index.js`. Below are the exact config file
+and key for each client this server has been used with.
+
+### Claude Desktop
+
+Edit `claude_desktop_config.json` (Settings → Developer → Edit Config):
+
+```json
+{
+  "mcpServers": {
+    "prompt-enhancer": {
+      "command": "node",
+      "args": ["/Users/<username>/Projects/prompt-enhancer-mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop for the change to take effect.
+
+### Claude Code
+
+Add the same block to Claude Code's MCP settings (`.claude/settings.json` or
+via `claude mcp add`, depending on your Claude Code version):
+
+```json
+{
+  "mcpServers": {
+    "prompt-enhancer": {
+      "command": "node",
+      "args": ["/Users/<username>/Projects/prompt-enhancer-mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+### Antigravity CLI / Gemini CLI
+
+Both use the same config file and key: `~/.gemini/settings.json`.
+
+```json
+{
+  "mcpServers": {
+    "prompt-enhancer": {
+      "command": "node",
+      "args": ["/Users/<username>/Projects/prompt-enhancer-mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+If the file already has an `"mcpServers"` object with other servers in it,
+add `"prompt-enhancer"` as a new key inside it rather than replacing the file.
+
+Restart the CLI session after editing.
+
+## Calling the tool
+
+The server exposes one tool, `optimize_prompt`:
+
+```json
+{
+  "draft": "quero um resumo do texto mas curto",
+  "target_model": "claude",
+  "brainstorm": false,
+  "explain": false
+}
+```
+
+Only `draft` is required — every other field has a default.
+
+## HTTP API
+
+The optimizer can be accessed over HTTP, which is handy for scripts, editors, or any tool that can issue a simple `curl` request.
+
+```bash
+curl -X POST http://localhost:3000/optimize \
+  -H "Content-Type: application/json" \
+  -d '{
+    "draft": "quero um resumo do texto mas curto",
+    "target_model": "claude",
+    "brainstorm": false,
+    "explain": false
+  }'
+```
+
+The response is a JSON object with a `content` array, exactly like the MCP tool returns. Example response:
+
+```json
+{
+  "content": [
+    { "type": "text", "value": "<optimized‑prompt>" },
+    { "type": "text", "value": "<optional‑explanation>" }
+  ]
+}
+```
+
+Set the port with the `MCP_HTTP_PORT` environment variable (default `3000`). The endpoint is `POST /optimize`. No authentication or rate‑limit is applied – it is intended for local development use only.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `draft` | string | — (required) | The rough idea to turn into an optimized prompt. |
+| `target_model` | `"generic"` \| `"claude"` \| `"gpt4o"` \| `"gemini"` | `"generic"` | Which API/format the optimized prompt is written for — `claude` and `gemini` use XML tags (per Google's own Gemini prompting guidance), `gpt4o` requests a JSON response, `generic` is plain-language. |
+| `brainstorm` | boolean | `false` | When true, the optimized prompt instructs the target model to answer via multiple distinct personas/perspectives (useful for open-ended ideation). |
+| `explain` | boolean | `false` | When true, the response includes a 2nd text block: a 1-line summary of what the critic pass changed. |
+| `model` | string | `qcwind/qwen2.5-7B-instruct-Q4_K_M` | Override which local Ollama model runs the pipeline. |
+
+The response is an MCP `content` array: one text block with the optimized
+prompt, plus a second text block when `explain: true`.
+
+## Behavior you should know about
+
+- **Self-critique pipeline:** every non-trivial request makes 2 Ollama calls
+  (draft, then critique/refine); `explain: true` adds a 3rd. A trivial draft
+  (`target_model: "generic"`, `brainstorm: false`, ≤15 words) skips the
+  critique call entirely — 1 call instead of 2.
+- **Response cache:** identical requests (same `draft` + `target_model` +
+  `brainstorm` + `explain` + `model`) are cached in memory for 1 hour
+  (100-entry LRU). A cache hit returns instantly with zero Ollama calls.
+- **Project presets:** drop a `.prompt-enhancer.json` file anywhere in your
+  project (the server searches upward from its working directory to find
+  it, like `.eslintrc`) to set project-wide defaults:
+  ```json
+  { "target_model": "claude", "explain": true }
+  ```
+  Any of `target_model`, `model`, `brainstorm`, `explain` can be set this
+  way. An explicit argument in a tool call always overrides the preset.
+- **Progress notifications:** if your MCP client attaches a `progressToken`
+  to its `tools/call` request, the server sends `notifications/progress`
+  updates as the pipeline advances through its stages. Clients that don't
+  ask for this see no behavior change.
+
+## Manual testing
+
+`test-manual.sh` drives the server over raw JSON-RPC on stdio (MCP doesn't
+speak HTTP, so `curl` won't work here):
+
+```bash
+./test-manual.sh "<draft>" [target_model] [brainstorm] [explain]
+```
+
+Examples:
+
+```bash
+# Defaults (generic, no brainstorm, no explain)
+./test-manual.sh "quero um resumo curto do texto"
+
+# Claude-formatted, with the change-summary block
+./test-manual.sh "I want a detailed and comprehensive summary of this long article covering many different topics in depth" claude false true
+
+# Brainstorm mode
+./test-manual.sh "preciso de ideias para o nome de uma nova cafetaria" generic true
+```
