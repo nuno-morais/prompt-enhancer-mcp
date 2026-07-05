@@ -35,6 +35,11 @@ export const OPTIMIZE_PROMPT_TOOL = {
         type: "string",
         description: "Optional ID to maintain conversation state. Provide a unique string. When making tweaks to a previously generated prompt, pass the same session_id."
       },
+      auto_cot: {
+        type: "boolean",
+        default: true,
+        description: "Automatically inject Chain-of-Thought (CoT) instructions if the task is complex."
+      },
       model: { type: "string", description: "Override for the Ollama model" }
     },
     required: ["draft"]
@@ -49,6 +54,7 @@ export async function handleOptimizePrompt(
     explain?: boolean;
     interactive?: boolean;
     session_id?: string;
+    auto_cot?: boolean;
     model?: string;
   },
   progress?: {
@@ -69,6 +75,7 @@ export async function handleOptimizePrompt(
     explain: args.explain ?? preset.explain ?? false,
     interactive: args.interactive ?? true, // default to true
     session_id: args.session_id,
+    auto_cot: args.auto_cot ?? true,
     model: args.model ?? preset.model ?? DEFAULT_MODEL
   };
 

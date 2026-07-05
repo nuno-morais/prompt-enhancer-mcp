@@ -2,6 +2,7 @@ import { getMetaPromptConfig, type TargetModel } from "./meta-prompts.js";
 import { ollamaChat, type OllamaChatMessage } from "./ollama-client.js";
 import { extractCodeBlock } from "./extract-code-block.js";
 import { getSession, saveSession } from "./session.js";
+import { requiresCoT, injectCoT } from "./cot-injector.js";
 
 const CRITIC_SYSTEM_PROMPT = `
 You are a meticulous Prompt Engineering reviewer. You will receive the ORIGINAL
@@ -69,6 +70,7 @@ export async function generateOptimizedPrompt(
     explain: boolean;
     model: string;
     session_id?: string;
+    auto_cot?: boolean;
   },
   onProgress?: ProgressCallback
 ): Promise<{ optimizedPrompt: string; explanation?: string }> {
@@ -134,11 +136,13 @@ export async function generateOptimizedPrompt(
   const willRunCritic = !isTrivialDraft(params.draft, params.target_model, params.brainstorm);
   const total = willRunCritic ? (params.explain ? 3 : 2) : (params.explain ? 1 : 0);
 
-
-
   if (total > 0) {
     onProgress?.(1, total, "Generating initial draft...");
   }
+
+  const cotCheckPromise = params.auto_cot 
+    ? requiresCoT(params.draft, params.model, ollamaParams)
+    : Promise.resolve(false);
 
   let messages: OllamaChatMessage[] = [
     { role: "system", content: systemPrompt },
@@ -154,15 +158,21 @@ export async function generateOptimizedPrompt(
   const firstDraftPrompt = extractCodeBlock(firstResponse.message.content);
 
   if (!willRunCritic) {
+    let finalPrompt = firstDraftPrompt;
+    const needsCoT = await cotCheckPromise;
+    if (needsCoT) {
+      finalPrompt = injectCoT(finalPrompt, params.target_model);
+    }
+
     if (params.session_id) {
       messages.push({
         role: "assistant",
-        content: `\`\`\`text\n${firstDraftPrompt}\n\`\`\``
+        content: `\`\`\`text\n${finalPrompt}\n\`\`\``
       });
       saveSession(params.session_id, messages);
     }
     return {
-      optimizedPrompt: firstDraftPrompt,
+      optimizedPrompt: finalPrompt,
       explanation: params.explain ? SKIP_CRITIC_EXPLANATION : undefined
     };
   }
@@ -182,7 +192,12 @@ export async function generateOptimizedPrompt(
     stream: false,
     options: ollamaParams
   });
-  const finalPrompt = extractCodeBlock(secondResponse.message.content);
+  let finalPrompt = extractCodeBlock(secondResponse.message.content);
+
+  const needsCoT = await cotCheckPromise;
+  if (needsCoT) {
+    finalPrompt = injectCoT(finalPrompt, params.target_model);
+  }
 
   if (params.session_id) {
     messages.push({

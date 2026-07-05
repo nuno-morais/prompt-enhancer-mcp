@@ -75,7 +75,9 @@ describe("handleOptimizePrompt", () => {
       brainstorm: false,
       explain: false,
       interactive: true,
-      model: "qcwind/qwen2.5-7B-instruct-Q4_K_M"
+      model: "qcwind/qwen2.5-7B-instruct-Q4_K_M",
+      auto_cot: true,
+      session_id: undefined
     });
   });
 
@@ -100,7 +102,9 @@ describe("handleOptimizePrompt", () => {
       brainstorm: true,
       explain: true,
       interactive: true,
-      model: "preset-model"
+      model: "preset-model",
+      auto_cot: true,
+      session_id: undefined
     });
   });
 
@@ -132,7 +136,9 @@ describe("handleOptimizePrompt", () => {
       brainstorm: false,
       explain: false,
       interactive: false,
-      model: "explicit-model"
+      model: "explicit-model",
+      auto_cot: true,
+      session_id: undefined
     });
   });
 
