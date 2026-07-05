@@ -3,3 +3,11 @@ dist/
 *.log
 .npmrc
 docs/superpowers/
+
+# Agent configuration files
+.agent-instructions.md
+clauderc.toml
+.gemini/
+.claudeignore
+.geminiignore
+prompts/
