@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import * as commander from 'commander';
 import { handleOptimizePrompt } from '../tool-handler.js';
 import { loadPreset } from '../preset.js';

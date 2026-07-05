@@ -19,7 +19,9 @@ response cache, and per-project default presets.
   ollama pull qcwind/qwen2.5-7B-instruct-Q4_K_M
   ```
 
-## Setup
+## Local Development
+
+If you want to clone and modify the server locally:
 
 ```bash
 npm install
@@ -27,8 +29,7 @@ npm run build
 npm test
 ```
 
-`npm run build` compiles `src/` to `dist/index.js`, which is what MCP clients
-run. Re-run it after pulling changes or editing source.
+`npm run build` compiles `src/` to `dist/index.js`. You can then run it via `node dist/index.js`.
 
 ## CLI Usage
 
@@ -37,9 +38,9 @@ See the full reference in **[docs/cli.md](docs/cli.md)**.
 
 ## Register with an MCP client
 
-All MCP clients register a server the same way: point them at
-`node <absolute-path-to-repo>/dist/index.js`. Below are the exact config file
-and key for each client this server has been used with.
+You do not need to clone the repository to use this MCP server. You can run it directly via `npx`.
+
+All MCP clients register a server the same way. Below are the exact config file and key for each client this server has been used with.
 
 ### Claude Desktop
 
@@ -49,8 +50,12 @@ Edit `claude_desktop_config.json` (Settings → Developer → Edit Config):
 {
   "mcpServers": {
     "prompt-enhancer": {
-      "command": "node",
-      "args": ["/Users/<username>/Projects/prompt-enhancer-mcp/dist/index.js"]
+      "command": "npx",
+      "args": [
+        "-y",
+        "--package=@nuno-morais/prompt-enhancer-mcp@latest",
+        "mcp"
+      ]
     }
   }
 }
@@ -60,15 +65,18 @@ Restart Claude Desktop for the change to take effect.
 
 ### Claude Code
 
-Add the same block to Claude Code's MCP settings (`.claude/settings.json` or
-via `claude mcp add`, depending on your Claude Code version):
+Add the same block to Claude Code's MCP settings (`.claude/settings.json` or via `claude mcp add`, depending on your Claude Code version):
 
 ```json
 {
   "mcpServers": {
     "prompt-enhancer": {
-      "command": "node",
-      "args": ["/Users/<username>/Projects/prompt-enhancer-mcp/dist/index.js"]
+      "command": "npx",
+      "args": [
+        "-y",
+        "--package=@nuno-morais/prompt-enhancer-mcp@latest",
+        "mcp"
+      ]
     }
   }
 }
@@ -82,8 +90,12 @@ Both use the same config file and key: `~/.gemini/settings.json`.
 {
   "mcpServers": {
     "prompt-enhancer": {
-      "command": "node",
-      "args": ["/Users/<username>/Projects/prompt-enhancer-mcp/dist/index.js"]
+      "command": "npx",
+      "args": [
+        "-y",
+        "--package=@nuno-morais/prompt-enhancer-mcp@latest",
+        "mcp"
+      ]
     }
   }
 }
