@@ -106,6 +106,36 @@ add `"prompt-enhancer"` as a new key inside it rather than replacing the file.
 
 Restart the CLI session after editing.
 
+### Cursor
+
+Navigate to `Cursor Settings` -> `Features` -> `MCP` -> `Add new MCP server`.
+- **Name**: `prompt-enhancer`
+- **Type**: `command`
+- **Command**: `npx -y --package=@nuno-morais/prompt-enhancer-mcp@latest mcp`
+
+Click "Add" and ensure the green light indicates a successful connection.
+
+### PI.dev, Zed, or Any Other MCP Client
+
+Since this tool uses the standard Model Context Protocol, it can be connected to any IDE or agent that acts as an MCP client. If your client requires a JSON configuration (like Zed or PI.dev configurations), the pattern is typically the same:
+
+```json
+{
+  "mcpServers": {
+    "prompt-enhancer": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--package=@nuno-morais/prompt-enhancer-mcp@latest",
+        "mcp"
+      ]
+    }
+  }
+}
+```
+
+If your client provides a UI to add tools instead of a configuration file, use the equivalent shell command: `npx -y --package=@nuno-morais/prompt-enhancer-mcp@latest mcp`.
+
 ## Calling the tool
 
 The server exposes one tool, `optimize_prompt`:
