@@ -40,6 +40,11 @@ export const OPTIMIZE_PROMPT_TOOL = {
         default: true,
         description: "Automatically inject Chain-of-Thought (CoT) instructions if the task is complex."
       },
+      auto_guardrails: {
+        type: "boolean",
+        default: true,
+        description: "Automatically generate and inject negative constraints (anti-hallucination guardrails)."
+      },
       model: { type: "string", description: "Override for the Ollama model" }
     },
     required: ["draft"]
@@ -55,6 +60,7 @@ export async function handleOptimizePrompt(
     interactive?: boolean;
     session_id?: string;
     auto_cot?: boolean;
+    auto_guardrails?: boolean;
     model?: string;
   },
   progress?: {
@@ -76,6 +82,7 @@ export async function handleOptimizePrompt(
     interactive: args.interactive ?? true, // default to true
     session_id: args.session_id,
     auto_cot: args.auto_cot ?? true,
+    auto_guardrails: args.auto_guardrails ?? true,
     model: args.model ?? preset.model ?? DEFAULT_MODEL
   };
 

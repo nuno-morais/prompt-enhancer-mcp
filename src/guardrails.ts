@@ -1,0 +1,48 @@
+import { ollamaChat } from "./ollama-client.js";
+
+const GUARDRAILS_SYSTEM_PROMPT = `
+Analyze the user's task. Identify the 1 to 3 most likely ways an AI model might hallucinate, add unnecessary filler, or make mistakes when completing this specific task.
+Respond ONLY with a bulleted list of strict negative constraints. Do not include any introductory text, pleasantries, or explanations. Start each bullet point with "- DO NOT".
+
+Examples of good negative constraints:
+- DO NOT write an introduction or conclusion.
+- DO NOT invent external APIs or third-party libraries.
+- DO NOT hallucinate facts; state if you don't know.
+- DO NOT apologize or be conversational.
+`.trim();
+
+export async function generateNegativeConstraints(draft: string, model: string, options: Record<string, unknown>): Promise<string | null> {
+  try {
+    const response = await ollamaChat({
+      model,
+      messages: [
+        { role: "system", content: GUARDRAILS_SYSTEM_PROMPT },
+        { role: "user", content: draft }
+      ],
+      stream: false,
+      options: {
+        ...options,
+        num_predict: 100, // Small output
+        temperature: 0.3
+      }
+    });
+
+    const constraints = response.message.content.trim();
+    if (constraints && constraints.includes("- DO NOT")) {
+      return constraints;
+    }
+    return null;
+  } catch (error) {
+    console.error("Guardrails generator failed, defaulting to null:", error);
+    return null;
+  }
+}
+
+export function injectGuardrails(prompt: string, constraints: string): string {
+  if (prompt.includes("<negative_constraints>")) {
+    return prompt;
+  }
+
+  const guardrailsBlock = `<negative_constraints>\n${constraints}\n</negative_constraints>`;
+  return `${prompt}\n\n${guardrailsBlock}`;
+}

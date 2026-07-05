@@ -77,6 +77,7 @@ describe("handleOptimizePrompt", () => {
       interactive: true,
       model: "qcwind/qwen2.5-7B-instruct-Q4_K_M",
       auto_cot: true,
+      auto_guardrails: true,
       session_id: undefined
     });
   });
@@ -104,6 +105,7 @@ describe("handleOptimizePrompt", () => {
       interactive: true,
       model: "preset-model",
       auto_cot: true,
+      auto_guardrails: true,
       session_id: undefined
     });
   });
@@ -138,6 +140,7 @@ describe("handleOptimizePrompt", () => {
       interactive: false,
       model: "explicit-model",
       auto_cot: true,
+      auto_guardrails: true,
       session_id: undefined
     });
   });

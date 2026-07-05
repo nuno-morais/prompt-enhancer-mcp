@@ -3,6 +3,7 @@ import { ollamaChat, type OllamaChatMessage } from "./ollama-client.js";
 import { extractCodeBlock } from "./extract-code-block.js";
 import { getSession, saveSession } from "./session.js";
 import { requiresCoT, injectCoT } from "./cot-injector.js";
+import { generateNegativeConstraints, injectGuardrails } from "./guardrails.js";
 
 const CRITIC_SYSTEM_PROMPT = `
 You are a meticulous Prompt Engineering reviewer. You will receive the ORIGINAL
@@ -71,6 +72,7 @@ export async function generateOptimizedPrompt(
     model: string;
     session_id?: string;
     auto_cot?: boolean;
+    auto_guardrails?: boolean;
   },
   onProgress?: ProgressCallback
 ): Promise<{ optimizedPrompt: string; explanation?: string }> {
@@ -144,6 +146,10 @@ export async function generateOptimizedPrompt(
     ? requiresCoT(params.draft, params.model, ollamaParams)
     : Promise.resolve(false);
 
+  const guardrailsPromise = params.auto_guardrails
+    ? generateNegativeConstraints(params.draft, params.model, ollamaParams)
+    : Promise.resolve(null);
+
   let messages: OllamaChatMessage[] = [
     { role: "system", content: systemPrompt },
     { role: "user", content: `<user_draft>\n${params.draft}\n</user_draft>` }
@@ -159,9 +165,12 @@ export async function generateOptimizedPrompt(
 
   if (!willRunCritic) {
     let finalPrompt = firstDraftPrompt;
-    const needsCoT = await cotCheckPromise;
+    const [needsCoT, constraints] = await Promise.all([cotCheckPromise, guardrailsPromise]);
     if (needsCoT) {
       finalPrompt = injectCoT(finalPrompt, params.target_model);
+    }
+    if (constraints) {
+      finalPrompt = injectGuardrails(finalPrompt, constraints);
     }
 
     if (params.session_id) {
@@ -194,9 +203,12 @@ export async function generateOptimizedPrompt(
   });
   let finalPrompt = extractCodeBlock(secondResponse.message.content);
 
-  const needsCoT = await cotCheckPromise;
+  const [needsCoT, constraints] = await Promise.all([cotCheckPromise, guardrailsPromise]);
   if (needsCoT) {
     finalPrompt = injectCoT(finalPrompt, params.target_model);
+  }
+  if (constraints) {
+    finalPrompt = injectGuardrails(finalPrompt, constraints);
   }
 
   if (params.session_id) {
