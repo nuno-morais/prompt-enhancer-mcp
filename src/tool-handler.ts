@@ -45,6 +45,11 @@ export const OPTIMIZE_PROMPT_TOOL = {
         default: true,
         description: "Automatically generate and inject negative constraints (anti-hallucination guardrails)."
       },
+      show_stats: {
+        type: "boolean",
+        default: false,
+        description: "Show a token count and prompt efficiency analysis."
+      },
       model: { type: "string", description: "Override for the Ollama model" }
     },
     required: ["draft"]
@@ -61,6 +66,7 @@ export async function handleOptimizePrompt(
     session_id?: string;
     auto_cot?: boolean;
     auto_guardrails?: boolean;
+    show_stats?: boolean;
     model?: string;
   },
   progress?: {
@@ -83,6 +89,7 @@ export async function handleOptimizePrompt(
     session_id: args.session_id,
     auto_cot: args.auto_cot ?? true,
     auto_guardrails: args.auto_guardrails ?? true,
+    show_stats: args.show_stats ?? preset.show_stats ?? false,
     model: args.model ?? preset.model ?? DEFAULT_MODEL
   };
 
@@ -108,8 +115,12 @@ export async function handleOptimizePrompt(
     : await generateOptimizedPrompt(params);
 
   const content: CachedResult["content"] = [{ type: "text", text: result.optimizedPrompt }];
-  if (params.explain) {
-    content.push({ type: "text", text: result.explanation ?? "" });
+  if (params.explain && result.explanation) {
+    content.push({ type: "text", text: result.explanation });
+  }
+
+  if (params.show_stats && result.stats) {
+    content.push({ type: "text", text: result.stats });
   }
 
   if (params.interactive) {

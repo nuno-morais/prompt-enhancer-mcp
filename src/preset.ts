@@ -7,6 +7,7 @@ export type Preset = {
   model?: string;
   brainstorm?: boolean;
   explain?: boolean;
+  show_stats?: boolean;
 };
 
 const VALID_TARGET_MODELS: TargetModel[] = ["generic", "claude", "gpt4o", "gemini"];
@@ -60,6 +61,9 @@ export function loadPreset(startDir: string = process.cwd()): Preset {
   }
   if (typeof obj.explain === "boolean") {
     preset.explain = obj.explain;
+  }
+  if (typeof obj.show_stats === "boolean") {
+    preset.show_stats = obj.show_stats;
   }
 
   return preset;

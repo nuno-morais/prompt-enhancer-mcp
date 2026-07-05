@@ -4,6 +4,7 @@ import { extractCodeBlock } from "./extract-code-block.js";
 import { getSession, saveSession } from "./session.js";
 import { requiresCoT, injectCoT } from "./cot-injector.js";
 import { generateNegativeConstraints, injectGuardrails } from "./guardrails.js";
+import { calculateStats, formatStatsString } from "./stats.js";
 
 const CRITIC_SYSTEM_PROMPT = `
 You are a meticulous Prompt Engineering reviewer. You will receive the ORIGINAL
@@ -73,9 +74,10 @@ export async function generateOptimizedPrompt(
     session_id?: string;
     auto_cot?: boolean;
     auto_guardrails?: boolean;
+    show_stats?: boolean;
   },
   onProgress?: ProgressCallback
-): Promise<{ optimizedPrompt: string; explanation?: string }> {
+): Promise<{ optimizedPrompt: string; explanation?: string; stats?: string }> {
   const { systemPrompt, params: ollamaParams } = getMetaPromptConfig(params.target_model, params.brainstorm);
 
   const session = params.session_id ? getSession(params.session_id) : undefined;
@@ -129,9 +131,15 @@ export async function generateOptimizedPrompt(
       explanation = explainResponse.message.content.trim();
     }
 
+    let stats: string | undefined;
+    if (params.show_stats) {
+      stats = formatStatsString(calculateStats(params.draft, newPrompt));
+    }
+
     return {
       optimizedPrompt: newPrompt,
-      explanation
+      explanation,
+      stats
     };
   }
 
@@ -180,9 +188,15 @@ export async function generateOptimizedPrompt(
       });
       saveSession(params.session_id, messages);
     }
+    let stats: string | undefined;
+    if (params.show_stats) {
+      stats = formatStatsString(calculateStats(params.draft, finalPrompt));
+    }
+
     return {
       optimizedPrompt: finalPrompt,
-      explanation: params.explain ? SKIP_CRITIC_EXPLANATION : undefined
+      explanation: params.explain ? SKIP_CRITIC_EXPLANATION : undefined,
+      stats
     };
   }
 
@@ -219,8 +233,13 @@ export async function generateOptimizedPrompt(
     saveSession(params.session_id, messages);
   }
 
+  let stats: string | undefined;
+  if (params.show_stats) {
+    stats = formatStatsString(calculateStats(params.draft, finalPrompt));
+  }
+
   if (!params.explain) {
-    return { optimizedPrompt: finalPrompt };
+    return { optimizedPrompt: finalPrompt, stats };
   }
 
   onProgress?.(3, total, "Generating change summary...");
@@ -241,6 +260,7 @@ export async function generateOptimizedPrompt(
 
   return {
     optimizedPrompt: finalPrompt,
-    explanation: explainResponse.message.content.trim()
+    explanation: explainResponse.message.content.trim(),
+    stats
   };
 }
