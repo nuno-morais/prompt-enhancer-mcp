@@ -3,7 +3,7 @@ import { OLLAMA_BASE_URL } from "./config.js";
 const OLLAMA_TIMEOUT_MS = 60_000;
 
 export type OllamaChatMessage = {
-  role: "system" | "user";
+  role: "system" | "user" | "assistant";
   content: string;
 };
 

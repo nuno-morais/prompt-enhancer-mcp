@@ -31,6 +31,10 @@ export const OPTIMIZE_PROMPT_TOOL = {
         default: true,
         description: "When true, instructs the calling assistant to pause and ask for user approval before answering the optimized prompt. Defaults to true to allow iteration."
       },
+      session_id: {
+        type: "string",
+        description: "Optional ID to maintain conversation state. Provide a unique string. When making tweaks to a previously generated prompt, pass the same session_id."
+      },
       model: { type: "string", description: "Override for the Ollama model" }
     },
     required: ["draft"]
@@ -44,6 +48,7 @@ export async function handleOptimizePrompt(
     brainstorm?: boolean;
     explain?: boolean;
     interactive?: boolean;
+    session_id?: string;
     model?: string;
   },
   progress?: {
@@ -63,6 +68,7 @@ export async function handleOptimizePrompt(
     brainstorm: args.brainstorm ?? preset.brainstorm ?? false,
     explain: args.explain ?? preset.explain ?? false,
     interactive: args.interactive ?? true, // default to true
+    session_id: args.session_id,
     model: args.model ?? preset.model ?? DEFAULT_MODEL
   };
 
