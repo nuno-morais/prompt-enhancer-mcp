@@ -58,7 +58,7 @@ describe("generateOptimizedPrompt", () => {
     expect(criticSystemMessage.content).not.toContain("{{first_draft_prompt}}");
   });
 
-  it("wraps context in a <context> tag before <user_draft> in the first call when context is provided", async () => {
+  it("wraps context in a <background_context> tag before <user_draft> in the first call when context is provided", async () => {
     const fetchMock = mockFirstAndSecondCalls("```text\nFirst draft prompt\n```", "```text\nFinal refined prompt\n```");
     vi.stubGlobal("fetch", fetchMock);
 
@@ -75,11 +75,11 @@ describe("generateOptimizedPrompt", () => {
     const userMessage = firstCallBody.messages.find((m: { role: string }) => m.role === "user");
 
     expect(userMessage.content).toBe(
-      `<context>\nThis is a project about widgets.\n</context>\n<user_draft>\n${LONG_DRAFT}\n</user_draft>`
+      `<background_context>\nThis is a project about widgets.\n</background_context>\n<user_draft>\n${LONG_DRAFT}\n</user_draft>`
     );
   });
 
-  it("omits the <context> tag entirely when context is not provided", async () => {
+  it("omits the <background_context> tag entirely when context is not provided", async () => {
     const fetchMock = mockFirstAndSecondCalls("```text\nFirst draft prompt\n```", "```text\nFinal refined prompt\n```");
     vi.stubGlobal("fetch", fetchMock);
 

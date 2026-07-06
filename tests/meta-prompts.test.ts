@@ -63,7 +63,7 @@ describe("getMetaPromptConfig", () => {
     const targetModels: TargetModel[] = ["generic", "claude", "gpt4o", "gemini"];
     for (const targetModel of targetModels) {
       const config = getMetaPromptConfig(targetModel, false);
-      expect(config.systemPrompt).toContain("<context> is background information only");
+      expect(config.systemPrompt).toContain("<background_context> is background information only");
     }
   });
 });

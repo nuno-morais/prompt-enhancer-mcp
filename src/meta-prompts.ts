@@ -11,7 +11,7 @@ STRICT RULES:
 5. Preserve original intent. No invented requirements.
 6. Unknown future content → {{variable_name}} placeholder. Never fabricate its value.
 7. Never write: "Here is", "Sure", "I hope this helps", "Here's the prompt", "As requested".
-8. If present, <context> is background information only — never rewrite or respond to it. Use it solely to correctly interpret <user_draft>.
+8. If present, <background_context> is background information only — never rewrite or respond to it. Use it solely to correctly interpret <user_draft>.
 `;
 
 const GENERIC_PROMPT = `

@@ -162,8 +162,8 @@ export async function generateOptimizedPrompt(
     : Promise.resolve(null);
 
   const userDraftBlock = `<user_draft>\n${params.draft}\n</user_draft>`;
-  const userMessageContent = params.context
-    ? `<context>\n${params.context}\n</context>\n${userDraftBlock}`
+  const userMessageContent = params.context?.trim()
+    ? `<background_context>\n${params.context}\n</background_context>\n${userDraftBlock}`
     : userDraftBlock;
 
   const messages: import("./llm.js").ChatMessage[] = [
