@@ -68,6 +68,7 @@ function isTrivialDraft(draft: string, targetModel: TargetModel, brainstorm: boo
 export async function generateOptimizedPrompt(
   params: {
     draft: string;
+    context?: string;
     target_model: TargetModel;
     brainstorm: boolean;
     explain: boolean;
@@ -160,9 +161,14 @@ export async function generateOptimizedPrompt(
     ? generateNegativeConstraints(params.draft, params.model, params.engine, ollamaParams)
     : Promise.resolve(null);
 
+  const userDraftBlock = `<user_draft>\n${params.draft}\n</user_draft>`;
+  const userMessageContent = params.context?.trim()
+    ? `<background_context>\n${params.context}\n</background_context>\n${userDraftBlock}`
+    : userDraftBlock;
+
   const messages: import("./llm.js").ChatMessage[] = [
     { role: "system", content: systemPrompt },
-    { role: "user", content: `<user_draft>\n${params.draft}\n</user_draft>` }
+    { role: "user", content: userMessageContent }
   ];
 
   const firstResponse = await generateChat({
