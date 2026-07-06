@@ -151,6 +151,45 @@ describe("handleOptimizePrompt", () => {
     });
   });
 
+  it("passes context through to generateOptimizedPrompt when provided", async () => {
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+    const generateSpy = vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "optimized text"
+    });
+
+    await handleOptimizePrompt({ draft: "hello world", context: "This is a project about widgets." });
+
+    expect(generateSpy).toHaveBeenCalledWith({
+      draft: "hello world",
+      target_model: "generic",
+      brainstorm: false,
+      explain: false,
+      interactive: true,
+      engine: "ollama",
+      model: "qcwind/qwen2.5-7B-instruct-Q4_K_M",
+      auto_cot: true,
+      auto_guardrails: true,
+      show_stats: false,
+      session_id: undefined,
+      context: "This is a project about widgets."
+    });
+  });
+
+  it("passes context as undefined when not provided", async () => {
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+    const generateSpy = vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "optimized text"
+    });
+
+    await handleOptimizePrompt({ draft: "hello world" });
+
+    expect(generateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ context: undefined })
+    );
+  });
+
   it("sends well-formed progress notifications when a progress token is provided and the pipeline reports progress", async () => {
     vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
     vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});

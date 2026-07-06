@@ -10,6 +10,10 @@ export const OPTIMIZE_PROMPT_TOOL = {
     type: "object",
     properties: {
       draft: { type: "string", description: "The raw draft idea" },
+      context: {
+        type: "string",
+        description: "Optional background/domain context (project description, glossary, relevant facts) to help the model correctly interpret domain-specific terms in the draft"
+      },
       target_model: {
         type: "string",
         enum: ["generic", "claude", "gpt4o", "gemini"],
@@ -60,6 +64,7 @@ export const OPTIMIZE_PROMPT_TOOL = {
 export async function handleOptimizePrompt(
   args: {
     draft: unknown;
+    context?: string;
     target_model?: TargetModel;
     brainstorm?: boolean;
     explain?: boolean;
@@ -84,6 +89,7 @@ export async function handleOptimizePrompt(
 
   const params = {
     draft: args.draft,
+    context: args.context,
     target_model: args.target_model ?? preset.target_model ?? "generic" as TargetModel,
     brainstorm: args.brainstorm ?? preset.brainstorm ?? false,
     explain: args.explain ?? preset.explain ?? false,
