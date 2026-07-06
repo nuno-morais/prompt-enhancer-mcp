@@ -58,4 +58,12 @@ describe("getMetaPromptConfig", () => {
     const config = getMetaPromptConfig("gpt4o", true);
     expect(config.params.num_predict).toBe(768);
   });
+
+  it("every target model includes the context-block handling rule", () => {
+    const targetModels: TargetModel[] = ["generic", "claude", "gpt4o", "gemini"];
+    for (const targetModel of targetModels) {
+      const config = getMetaPromptConfig(targetModel, false);
+      expect(config.systemPrompt).toContain("<context> is background information only");
+    }
+  });
 });
