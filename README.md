@@ -57,7 +57,7 @@ Edit `claude_desktop_config.json` (Settings → Developer → Edit Config):
       "args": [
         "-y",
         "--package=@nuno-morais/prompt-enhancer-mcp@latest",
-        "mcp"
+        "prompt-enhancer-mcp"
       ]
     }
   }
@@ -78,7 +78,7 @@ Add the same block to Claude Code's MCP settings (`.claude/settings.json` or via
       "args": [
         "-y",
         "--package=@nuno-morais/prompt-enhancer-mcp@latest",
-        "mcp"
+        "prompt-enhancer-mcp"
       ]
     }
   }
@@ -97,7 +97,7 @@ Both use the same config file and key: `~/.gemini/settings.json`.
       "args": [
         "-y",
         "--package=@nuno-morais/prompt-enhancer-mcp@latest",
-        "mcp"
+        "prompt-enhancer-mcp"
       ]
     }
   }
@@ -114,7 +114,7 @@ Restart the CLI session after editing.
 Navigate to `Cursor Settings` -> `Features` -> `MCP` -> `Add new MCP server`.
 - **Name**: `prompt-enhancer`
 - **Type**: `command`
-- **Command**: `npx -y --package=@nuno-morais/prompt-enhancer-mcp@latest mcp`
+- **Command**: `npx -y --package=@nuno-morais/prompt-enhancer-mcp@latest prompt-enhancer-mcp`
 
 Click "Add" and ensure the green light indicates a successful connection.
 
@@ -130,14 +130,14 @@ Since this tool uses the standard Model Context Protocol, it can be connected to
       "args": [
         "-y",
         "--package=@nuno-morais/prompt-enhancer-mcp@latest",
-        "mcp"
+        "prompt-enhancer-mcp"
       ]
     }
   }
 }
 ```
 
-If your client provides a UI to add tools instead of a configuration file, use the equivalent shell command: `npx -y --package=@nuno-morais/prompt-enhancer-mcp@latest mcp`.
+If your client provides a UI to add tools instead of a configuration file, use the equivalent shell command: `npx -y --package=@nuno-morais/prompt-enhancer-mcp@latest prompt-enhancer-mcp`.
 
 ## Calling the tool
 
