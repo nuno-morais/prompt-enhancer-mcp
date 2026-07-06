@@ -11,6 +11,8 @@ enough to skip the critique pass. Optional features layer on top: multi-persona
 brainstorming, a 1-line summary of what the critic changed, an in-memory
 response cache, and per-project default presets.
 
+**Model Agnostic:** The server uses Ollama's standard API, meaning you can use **any local model** (Llama 3, Mistral, Qwen, Phi, etc.). You can configure the model per project or per request!
+
 ## Prerequisites
 
 - Node.js 20+
@@ -145,7 +147,11 @@ The server exposes one tool, `optimize_prompt`:
   "draft": "quero um resumo do texto mas curto",
   "target_model": "claude",
   "brainstorm": false,
-  "explain": false
+  "explain": false,
+  "auto_cot": true,
+  "auto_guardrails": true,
+  "show_stats": true,
+  "model": "llama3.1:8b"
 }
 ```
 
@@ -185,7 +191,11 @@ Set the port with the `MCP_HTTP_PORT` environment variable (default `3000`). The
 | `target_model` | `"generic"` \| `"claude"` \| `"gpt4o"` \| `"gemini"` | `"generic"` | Which API/format the optimized prompt is written for — `claude` and `gemini` use XML tags (per Google's own Gemini prompting guidance), `gpt4o` requests a JSON response, `generic` is plain-language. |
 | `brainstorm` | boolean | `false` | When true, the optimized prompt instructs the target model to answer via multiple distinct personas/perspectives (useful for open-ended ideation). |
 | `explain` | boolean | `false` | When true, the response includes a 2nd text block: a 1-line summary of what the critic pass changed. |
-| `model` | string | `qcwind/qwen2.5-7B-instruct-Q4_K_M` | Override which local Ollama model runs the pipeline. |
+| `auto_cot` | boolean | `true` | Automatically injects a `<thinking>` block tailored to the `target_model` for complex requests, improving reasoning. |
+| `auto_guardrails` | boolean | `true` | Automatically detects potential hallucination risks and injects a strict `<negative_constraints>` block (`DO NOT...`). |
+| `show_stats` | boolean | `false` | Returns an additional text block detailing token expansion and efficiency metrics. |
+| `interactive` | boolean | `true` | When true, instructs the MCP client NOT to answer the optimized prompt immediately, but instead present it to the user for approval. |
+| `model` | string | `qcwind/qwen2.5-7B-instruct-Q4_K_M` | Override which local Ollama model runs the pipeline. Any Ollama model is supported! |
 
 The response is an MCP `content` array: one text block with the optimized
 prompt, plus a second text block when `explain: true`.
@@ -203,10 +213,10 @@ prompt, plus a second text block when `explain: true`.
   project (the server searches upward from its working directory to find
   it, like `.eslintrc`) to set project-wide defaults:
   ```json
-  { "target_model": "claude", "explain": true }
+  { "target_model": "claude", "explain": true, "show_stats": true, "model": "mistral" }
   ```
-  Any of `target_model`, `model`, `brainstorm`, `explain` can be set this
-  way. An explicit argument in a tool call always overrides the preset.
+  Any parameter can be set this way. An explicit argument in a tool call always overrides the preset.
+- **Background Processes (Zero-Cost Latency):** `auto_cot` and `auto_guardrails` are executed asynchronously in parallel with the first draft generation, causing **zero extra wait time**.
 - **Progress notifications:** if your MCP client attaches a `progressToken`
   to its `tools/call` request, the server sends `notifications/progress`
   updates as the pipeline advances through its stages. Clients that don't
