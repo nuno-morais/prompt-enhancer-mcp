@@ -1,4 +1,4 @@
-import { DEFAULT_MODEL, type TargetModel } from "./config.js";
+import { DEFAULT_MODEL, DEFAULT_ENGINE, type TargetModel } from "./config.js";
 import { generateOptimizedPrompt, type ProgressCallback } from "./refine.js";
 import { getCacheKey, getCached, setCached, type CachedResult } from "./cache.js";
 import { loadPreset } from "./preset.js";
@@ -50,7 +50,8 @@ export const OPTIMIZE_PROMPT_TOOL = {
         default: false,
         description: "Show a token count and prompt efficiency analysis."
       },
-      model: { type: "string", description: "Override for the Ollama model" }
+      engine: { type: "string", description: "The underlying LLM engine to use (ollama or anthropic)" },
+      model: { type: "string", description: "Override for the model" }
     },
     required: ["draft"]
   }
@@ -67,6 +68,7 @@ export async function handleOptimizePrompt(
     auto_cot?: boolean;
     auto_guardrails?: boolean;
     show_stats?: boolean;
+    engine?: string;
     model?: string;
   },
   progress?: {
@@ -90,7 +92,12 @@ export async function handleOptimizePrompt(
     auto_cot: args.auto_cot ?? true,
     auto_guardrails: args.auto_guardrails ?? true,
     show_stats: args.show_stats ?? preset.show_stats ?? false,
-    model: args.model ?? preset.model ?? DEFAULT_MODEL
+    engine: (args.engine as "ollama" | "anthropic") ?? preset.engine ?? DEFAULT_ENGINE,
+    model: args.model ?? preset.model ?? (
+      (args.engine === "anthropic" || preset.engine === "anthropic") 
+        ? "claude-3-5-haiku-latest" 
+        : DEFAULT_MODEL
+    )
   };
 
   const cacheKey = getCacheKey(params);

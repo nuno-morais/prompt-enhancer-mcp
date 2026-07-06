@@ -1,0 +1,39 @@
+import { ollamaChat } from "./ollama-client.js";
+import { anthropicChat } from "./anthropic-client.js";
+
+export type LLMEngine = "ollama" | "anthropic";
+
+export type ChatMessage = {
+  role: "system" | "user" | "assistant";
+  content: string;
+};
+
+export type ChatRequest = {
+  engine: LLMEngine;
+  model: string;
+  messages: ChatMessage[];
+  options: Record<string, unknown>;
+};
+
+export type ChatResponse = {
+  message: {
+    role: "assistant";
+    content: string;
+  };
+};
+
+export async function generateChat(request: ChatRequest): Promise<ChatResponse> {
+  if (request.engine === "anthropic") {
+    return anthropicChat(request);
+  }
+  
+  // Default to Ollama
+  const res = await ollamaChat({
+    model: request.model,
+    messages: request.messages,
+    stream: false,
+    options: request.options
+  });
+  
+  return res as ChatResponse;
+}

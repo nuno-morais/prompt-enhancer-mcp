@@ -1,4 +1,5 @@
-import { ollamaChat } from "./ollama-client.js";
+import { generateChat } from "./llm.js";
+import type { LLMEngine } from "./llm.js";
 
 const GUARDRAILS_SYSTEM_PROMPT = `
 Analyze the user's task. Identify the 1 to 3 most likely ways an AI model might hallucinate, add unnecessary filler, or make mistakes when completing this specific task.
@@ -11,25 +12,30 @@ Examples of good negative constraints:
 - DO NOT apologize or be conversational.
 `.trim();
 
-export async function generateNegativeConstraints(draft: string, model: string, options: Record<string, unknown>): Promise<string | null> {
+export async function generateNegativeConstraints(
+  draft: string,
+  model: string,
+  engine: LLMEngine,
+  baseParams: Record<string, unknown>
+): Promise<string[] | null> {
   try {
-    const response = await ollamaChat({
+    const response = await generateChat({
+      engine,
       model,
       messages: [
         { role: "system", content: GUARDRAILS_SYSTEM_PROMPT },
         { role: "user", content: draft }
       ],
-      stream: false,
       options: {
-        ...options,
-        num_predict: 100, // Small output
-        temperature: 0.3
+        ...baseParams,
+        num_predict: 150,
+        temperature: 0.1
       }
     });
 
     const constraints = response.message.content.trim();
     if (constraints && constraints.includes("- DO NOT")) {
-      return constraints;
+      return constraints.split('\n').filter(line => line.startsWith('- DO NOT'));
     }
     return null;
   } catch (error) {
@@ -38,11 +44,11 @@ export async function generateNegativeConstraints(draft: string, model: string, 
   }
 }
 
-export function injectGuardrails(prompt: string, constraints: string): string {
+export function injectGuardrails(prompt: string, constraints: string[]): string {
   if (prompt.includes("<negative_constraints>")) {
     return prompt;
   }
 
-  const guardrailsBlock = `<negative_constraints>\n${constraints}\n</negative_constraints>`;
+  const guardrailsBlock = `<negative_constraints>\n${constraints.join("\n")}\n</negative_constraints>`;
   return `${prompt}\n\n${guardrailsBlock}`;
 }

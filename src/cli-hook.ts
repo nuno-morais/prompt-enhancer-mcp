@@ -6,7 +6,7 @@
  * to stdout (visible in the transcript).
  */
 import { generateOptimizedPrompt } from "./refine.js";
-import { DEFAULT_MODEL } from "./config.js";
+import { DEFAULT_MODEL, DEFAULT_ENGINE } from "./config.js";
 import { stdin, stdout, stderr } from "node:process";
 
 interface HookPayload {
@@ -56,6 +56,7 @@ function wordCount(text: string): number {
     target_model: "generic" as const,
     brainstorm: false,
     explain: false,
+    engine: DEFAULT_ENGINE,
     model: DEFAULT_MODEL,
   };
 

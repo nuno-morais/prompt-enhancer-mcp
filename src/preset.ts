@@ -1,8 +1,10 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import type { TargetModel } from "./config.js";
+import type { LLMEngine } from "./llm.js";
 
 export type Preset = {
+  engine?: LLMEngine;
   target_model?: TargetModel;
   model?: string;
   brainstorm?: boolean;
@@ -11,6 +13,7 @@ export type Preset = {
 };
 
 const VALID_TARGET_MODELS: TargetModel[] = ["generic", "claude", "gpt4o", "gemini"];
+const VALID_ENGINES: LLMEngine[] = ["ollama", "anthropic"];
 
 function findPresetPath(startDir: string): string | undefined {
   let currentDir = startDir;
@@ -50,6 +53,9 @@ export function loadPreset(startDir: string = process.cwd()): Preset {
   const obj = parsed as Record<string, unknown>;
   const preset: Preset = {};
 
+  if (typeof obj.engine === "string" && VALID_ENGINES.includes(obj.engine as LLMEngine)) {
+    preset.engine = obj.engine as LLMEngine;
+  }
   if (typeof obj.target_model === "string" && VALID_TARGET_MODELS.includes(obj.target_model as TargetModel)) {
     preset.target_model = obj.target_model as TargetModel;
   }

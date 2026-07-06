@@ -1,4 +1,5 @@
-import { ollamaChat } from "./ollama-client.js";
+import { generateChat } from "./llm.js";
+import type { LLMEngine } from "./llm.js";
 import type { TargetModel } from "./meta-prompts.js";
 
 const COT_CLASSIFIER_PROMPT = `
@@ -6,18 +7,23 @@ Analyze the following user task/draft. Does it require complex logical reasoning
 Answer ONLY with the word YES or NO. Do not explain.
 `.trim();
 
-export async function requiresCoT(draft: string, model: string, options: Record<string, unknown>): Promise<boolean> {
+export async function requiresCoT(
+  draft: string,
+  model: string,
+  engine: LLMEngine,
+  baseParams: Record<string, unknown>
+): Promise<boolean> {
   try {
-    const response = await ollamaChat({
+    const response = await generateChat({
+      engine,
       model,
       messages: [
         { role: "system", content: COT_CLASSIFIER_PROMPT },
         { role: "user", content: draft }
       ],
-      stream: false,
       options: {
-        ...options,
-        num_predict: 5, // Just need a few tokens for "YES" or "NO"
+        ...baseParams,
+        num_predict: 10,
         temperature: 0.1
       }
     });

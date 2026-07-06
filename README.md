@@ -11,15 +11,16 @@ enough to skip the critique pass. Optional features layer on top: multi-persona
 brainstorming, a 1-line summary of what the critic changed, an in-memory
 response cache, and per-project default presets.
 
-**Model Agnostic:** The server uses Ollama's standard API, meaning you can use **any local model** (Llama 3, Mistral, Qwen, Phi, etc.). You can configure the model per project or per request!
+**Model Agnostic:** The server supports both local execution via **Ollama** (Llama 3, Mistral, Qwen, Phi, etc.) and cloud execution via the **Anthropic API** (Claude 3.5 Haiku, Sonnet, etc.). You can configure the engine and model per project or per request!
 
 ## Prerequisites
 
 - Node.js 20+
-- [Ollama](https://ollama.com) running locally with a model pulled, e.g.:
+- **Option A (Local):** [Ollama](https://ollama.com) running locally with a model pulled, e.g.:
   ```bash
   ollama pull qcwind/qwen2.5-7B-instruct-Q4_K_M
   ```
+- **Option B (Cloud):** An Anthropic API Key (`ANTHROPIC_API_KEY` environment variable).
 
 ## Local Development
 
@@ -151,6 +152,7 @@ The server exposes one tool, `optimize_prompt`:
   "auto_cot": true,
   "auto_guardrails": true,
   "show_stats": true,
+  "engine": "ollama",
   "model": "llama3.1:8b"
 }
 ```
@@ -195,7 +197,8 @@ Set the port with the `MCP_HTTP_PORT` environment variable (default `3000`). The
 | `auto_guardrails` | boolean | `true` | Automatically detects potential hallucination risks and injects a strict `<negative_constraints>` block (`DO NOT...`). |
 | `show_stats` | boolean | `false` | Returns an additional text block detailing token expansion and efficiency metrics. |
 | `interactive` | boolean | `true` | When true, instructs the MCP client NOT to answer the optimized prompt immediately, but instead present it to the user for approval. |
-| `model` | string | `qcwind/qwen2.5-7B-instruct-Q4_K_M` | Override which local Ollama model runs the pipeline. Any Ollama model is supported! |
+| `engine` | `"ollama"` \| `"anthropic"` | `"ollama"` | Choose the backend engine. If using `anthropic`, you must set the `ANTHROPIC_API_KEY` environment variable. |
+| `model` | string | `qcwind/qwen...` | Override which model runs the pipeline. If `engine` is `anthropic`, defaults to `claude-3-5-haiku-latest`, but you can explicitly set it to `claude-3-5-sonnet-latest` or any other valid model! |
 
 The response is an MCP `content` array: one text block with the optimized
 prompt, plus a second text block when `explain: true`.
@@ -211,9 +214,16 @@ prompt, plus a second text block when `explain: true`.
   (100-entry LRU). A cache hit returns instantly with zero Ollama calls.
 - **Project presets:** drop a `.prompt-enhancer.json` file anywhere in your
   project (the server searches upward from its working directory to find
-  it, like `.eslintrc`) to set project-wide defaults:
+  it, like `.eslintrc`) to set project-wide defaults.
+
+  For Ollama:
   ```json
   { "target_model": "claude", "explain": true, "show_stats": true, "model": "mistral" }
+  ```
+
+  For Anthropic (e.g. upgrading from Haiku to Sonnet):
+  ```json
+  { "engine": "anthropic", "model": "claude-3-5-sonnet-latest", "target_model": "claude", "explain": true, "show_stats": true }
   ```
   Any parameter can be set this way. An explicit argument in a tool call always overrides the preset.
 - **Background Processes (Zero-Cost Latency):** `auto_cot` and `auto_guardrails` are executed asynchronously in parallel with the first draft generation, causing **zero extra wait time**.

@@ -1,5 +1,6 @@
 import { getMetaPromptConfig, type TargetModel } from "./meta-prompts.js";
-import { ollamaChat, type OllamaChatMessage } from "./ollama-client.js";
+import { generateChat } from "./llm.js";
+import type { LLMEngine } from "./llm.js";
 import { extractCodeBlock } from "./extract-code-block.js";
 import { getSession, saveSession } from "./session.js";
 import { requiresCoT, injectCoT } from "./cot-injector.js";
@@ -70,6 +71,7 @@ export async function generateOptimizedPrompt(
     target_model: TargetModel;
     brainstorm: boolean;
     explain: boolean;
+    engine: LLMEngine;
     model: string;
     session_id?: string;
     auto_cot?: boolean;
@@ -95,10 +97,10 @@ export async function generateOptimizedPrompt(
       content: `The user provided the following feedback on the last iteration:\n\n<feedback>\n${params.draft}\n</feedback>\n\nPlease update the optimized prompt based on this feedback. Output ONLY the new optimized prompt in a markdown code block, just like before.`
     });
 
-    const refineResponse = await ollamaChat({
+    const refineResponse = await generateChat({
+      engine: params.engine,
       model: params.model,
       messages,
-      stream: false,
       options: ollamaParams
     });
 
@@ -119,13 +121,13 @@ export async function generateOptimizedPrompt(
         .split("{{draft_a}}").join(previousPrompt)
         .split("{{draft_b}}").join(newPrompt);
 
-      const explainResponse = await ollamaChat({
+      const explainResponse = await generateChat({
+        engine: params.engine,
         model: params.model,
         messages: [
           { role: "system", content: explainPrompt },
           { role: "user", content: "Provide the one-sentence summary now." }
         ],
-        stream: false,
         options: ollamaParams
       });
       explanation = explainResponse.message.content.trim();
@@ -151,22 +153,22 @@ export async function generateOptimizedPrompt(
   }
 
   const cotCheckPromise = params.auto_cot 
-    ? requiresCoT(params.draft, params.model, ollamaParams)
+    ? requiresCoT(params.draft, params.model, params.engine, ollamaParams)
     : Promise.resolve(false);
 
   const guardrailsPromise = params.auto_guardrails
-    ? generateNegativeConstraints(params.draft, params.model, ollamaParams)
+    ? generateNegativeConstraints(params.draft, params.model, params.engine, ollamaParams)
     : Promise.resolve(null);
 
-  let messages: OllamaChatMessage[] = [
+  const messages: import("./llm.js").ChatMessage[] = [
     { role: "system", content: systemPrompt },
     { role: "user", content: `<user_draft>\n${params.draft}\n</user_draft>` }
   ];
 
-  const firstResponse = await ollamaChat({
+  const firstResponse = await generateChat({
+    engine: params.engine,
     model: params.model,
     messages,
-    stream: false,
     options: ollamaParams
   });
   const firstDraftPrompt = extractCodeBlock(firstResponse.message.content);
@@ -206,13 +208,13 @@ export async function generateOptimizedPrompt(
     .split("{{first_draft_prompt}}").join(firstDraftPrompt)
     .split("{{original_draft}}").join(params.draft);
 
-  const secondResponse = await ollamaChat({
+  const secondResponse = await generateChat({
+    engine: params.engine,
     model: params.model,
     messages: [
       { role: "system", content: criticPrompt },
       { role: "user", content: "Run the critique process and provide the final optimized prompt now." }
     ],
-    stream: false,
     options: ollamaParams
   });
   let finalPrompt = extractCodeBlock(secondResponse.message.content);
@@ -248,13 +250,13 @@ export async function generateOptimizedPrompt(
     .split("{{draft_a}}").join(firstDraftPrompt)
     .split("{{draft_b}}").join(finalPrompt);
 
-  const explainResponse = await ollamaChat({
+  const explainResponse = await generateChat({
+    engine: params.engine,
     model: params.model,
     messages: [
       { role: "system", content: explainPrompt },
       { role: "user", content: "Provide the one-sentence summary now." }
     ],
-    stream: false,
     options: ollamaParams
   });
 

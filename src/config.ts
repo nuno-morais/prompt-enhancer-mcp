@@ -1,3 +1,6 @@
+import type { LLMEngine } from "./llm.js";
+
+export const DEFAULT_ENGINE: LLMEngine = "ollama";
 export const DEFAULT_MODEL = "qcwind/qwen2.5-7B-instruct-Q4_K_M";
 
 export const OLLAMA_BASE_URL = "http://localhost:11434";
