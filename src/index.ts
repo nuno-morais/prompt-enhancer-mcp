@@ -3,6 +3,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { OPTIMIZE_PROMPT_TOOL, handleOptimizePrompt } from "./tool-handler.js";
+import { CHECK_HEALTH_TOOL, handleCheckHealth } from "./health.js";
 import { type TargetModel } from "./config.js";
 
 const server = new Server(
@@ -11,10 +12,14 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [OPTIMIZE_PROMPT_TOOL]
+  tools: [OPTIMIZE_PROMPT_TOOL, CHECK_HEALTH_TOOL]
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+  if (request.params.name === "check_health") {
+    return handleCheckHealth(request.params.arguments as { engine?: string; model?: string });
+  }
+
   if (request.params.name !== "optimize_prompt") {
     throw new Error(`Unknown tool: ${request.params.name}`);
   }
