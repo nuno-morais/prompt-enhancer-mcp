@@ -39,7 +39,10 @@ describe("handleCheckHealth", () => {
 
     const result = await handleCheckHealth({ engine: "ollama" });
 
-    expect(fetchMock).toHaveBeenCalledWith(`${getOllamaBaseUrl()}/api/tags`);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${getOllamaBaseUrl()}/api/tags`,
+      expect.objectContaining({ headers: {} })
+    );
     expect(result.content).toEqual([
       { type: "text", text: `✅ Ollama reachable at ${getOllamaBaseUrl()}, model '${DEFAULT_MODEL}' available.` }
     ]);
@@ -97,5 +100,26 @@ describe("handleCheckHealth", () => {
     expect(result.content).toEqual([
       { type: "text", text: `✅ Ollama reachable at ${getOllamaBaseUrl()}, model 'custom-model:latest' available.` }
     ]);
+  });
+
+  it("includes OLLAMA_EXTRA_HEADERS in the /api/tags request", async () => {
+    vi.stubEnv("OLLAMA_EXTRA_HEADERS", '{"CF-Access-Client-Id":"abc","CF-Access-Client-Secret":"xyz"}');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ models: [{ name: `${DEFAULT_MODEL}:latest`, model: `${DEFAULT_MODEL}:latest` }] })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await handleCheckHealth({ engine: "ollama" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: {
+          "CF-Access-Client-Id": "abc",
+          "CF-Access-Client-Secret": "xyz"
+        }
+      })
+    );
   });
 });

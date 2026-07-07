@@ -1,4 +1,4 @@
-import { DEFAULT_ENGINE, DEFAULT_MODEL, getOllamaBaseUrl } from "./config.js";
+import { DEFAULT_ENGINE, DEFAULT_MODEL, getOllamaBaseUrl, getOllamaExtraHeaders } from "./config.js";
 import { loadPreset } from "./preset.js";
 import type { LLMEngine } from "./llm.js";
 
@@ -38,7 +38,7 @@ export async function handleCheckHealth(
 
   let response: Response;
   try {
-    response = await fetch(`${getOllamaBaseUrl()}/api/tags`);
+    response = await fetch(`${getOllamaBaseUrl()}/api/tags`, { headers: getOllamaExtraHeaders() });
   } catch (err) {
     if (err instanceof TypeError && err.message === "fetch failed") {
       return {
