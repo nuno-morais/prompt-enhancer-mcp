@@ -85,4 +85,20 @@ describe("ollamaChat", () => {
 
     vi.useRealTimers();
   }, 30_000);
+
+  it("throws a descriptive error when Ollama is unreachable (connection refused)", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const request = {
+      model: "test-model",
+      messages: [{ role: "user" as const, content: "hi" }],
+      stream: false as const,
+      options: {}
+    };
+
+    await expect(ollamaChat(request)).rejects.toThrow(
+      `Could not reach Ollama at ${OLLAMA_BASE_URL}. Is Ollama running? Try 'ollama serve'.`
+    );
+  });
 });

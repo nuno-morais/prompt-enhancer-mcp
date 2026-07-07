@@ -42,6 +42,11 @@ export async function ollamaChat(request: OllamaChatRequest): Promise<OllamaChat
     if (err instanceof Error && err.name === "AbortError") {
       throw new Error(`Ollama request timed out after ${OLLAMA_TIMEOUT_MS}ms`);
     }
+    if (err instanceof TypeError && err.message === "fetch failed") {
+      throw new Error(
+        `Could not reach Ollama at ${OLLAMA_BASE_URL}. Is Ollama running? Try 'ollama serve'.`
+      );
+    }
     throw err;
   } finally {
     clearTimeout(timeoutId);
