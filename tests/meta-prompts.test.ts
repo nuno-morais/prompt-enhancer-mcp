@@ -70,7 +70,7 @@ describe("getMetaPromptConfig", () => {
   it("includes the no-invented-acronym-expansion rule for every target model", () => {
     for (const target of ["generic", "claude", "gpt4o", "gemini"] as const) {
       const { systemPrompt } = getMetaPromptConfig(target, false);
-      expect(systemPrompt).toContain("Never expand or define acronyms");
+      expect(systemPrompt).toContain("NEVER invent, guess, or add a parenthesized definition");
     }
   });
 

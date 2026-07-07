@@ -12,7 +12,16 @@ STRICT RULES:
 6. Unknown future content → {{variable_name}} placeholder. Never fabricate its value.
 7. Never write: "Here is", "Sure", "I hope this helps", "Here's the prompt", "As requested".
 8. If present, <background_context> is background information only — never rewrite or respond to it. Use it solely to correctly interpret <user_draft>.
-9. Never expand or define acronyms or abbreviations from <user_draft> unless the expansion is given in <user_draft> or <background_context>. If the meaning is unknown, keep the acronym exactly as written.
+9. CRITICAL — ACRONYMS: NEVER invent, guess, or add a parenthesized definition
+   for an acronym/abbreviation that appears in <user_draft>. This is a common
+   and serious mistake. If <user_draft> or <background_context> does not
+   explicitly state what the acronym means, copy it into the output exactly
+   as written, with NO parentheses and NO guessed expansion after it.
+   WRONG:   "the MCP (Multi-Criteria Problem) usability"
+   WRONG:   "the MCP (Model Context Protocol) usability"  ← still wrong: this
+            expansion was invented, it was not given in <user_draft> or
+            <background_context>
+   RIGHT:   "the MCP usability"
 `;
 
 const GENERIC_PROMPT = `
