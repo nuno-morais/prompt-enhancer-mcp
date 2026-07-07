@@ -16,11 +16,12 @@ response cache, and per-project default presets.
 ## Prerequisites
 
 - Node.js 20+
-- **Option A (Local):** [Ollama](https://ollama.com) running locally with a model pulled, e.g.:
+- **Option A (Local Ollama):** [Ollama](https://ollama.com) running locally with a model pulled, e.g.:
   ```bash
   ollama pull qcwind/qwen2.5-7B-instruct-Q4_K_M
   ```
-- **Option B (Cloud):** An Anthropic API Key (`ANTHROPIC_API_KEY` environment variable).
+- **Option B (Remote Ollama):** Ollama running on a machine you control (e.g. a home server exposed through a tunnel), with `OLLAMA_BASE_URL` (and optionally `OLLAMA_EXTRA_HEADERS` for an authenticating proxy) pointed at it. See [Remote Ollama endpoint](#remote-ollama-endpoint) below. Useful when local model execution isn't available on your machine (e.g. a locked-down company laptop).
+- **Option C (Cloud):** An Anthropic API Key (`ANTHROPIC_API_KEY` environment variable). Useful when neither local nor remote Ollama is an option.
 
 ## Local Development
 
