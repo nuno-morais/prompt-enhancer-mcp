@@ -12,6 +12,7 @@ STRICT RULES:
 6. Unknown future content → {{variable_name}} placeholder. Never fabricate its value.
 7. Never write: "Here is", "Sure", "I hope this helps", "Here's the prompt", "As requested".
 8. If present, <background_context> is background information only — never rewrite or respond to it. Use it solely to correctly interpret <user_draft>.
+9. Never expand or define acronyms or abbreviations from <user_draft> unless the expansion is given in <user_draft> or <background_context>. If the meaning is unknown, keep the acronym exactly as written.
 `;
 
 const GENERIC_PROMPT = `
