@@ -245,4 +245,36 @@ describe("handleOptimizePrompt", () => {
     expect(generateSpy).not.toHaveBeenCalled();
     expect(sendNotification).not.toHaveBeenCalled();
   });
+
+  it("appends a lint-warnings block when the optimized prompt has unresolved placeholders", async () => {
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+    vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "<task>Sum</task>\n<content>{{text}}</content>"
+    });
+
+    const result = await handleOptimizePrompt({
+      draft: "unique draft for lint test " + Date.now(),
+      interactive: false
+    });
+
+    const lintBlock = result.content.find(b => b.text.includes("Prompt lint warnings"));
+    expect(lintBlock).toBeDefined();
+    expect(lintBlock!.text).toContain("{{text}}");
+  });
+
+  it("adds no lint block for a clean prompt", async () => {
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+    vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "Summarize the text in 3 sentences."
+    });
+
+    const result = await handleOptimizePrompt({
+      draft: "another unique draft " + Date.now(),
+      interactive: false
+    });
+
+    expect(result.content.some(b => b.text.includes("Prompt lint warnings"))).toBe(false);
+  });
 });

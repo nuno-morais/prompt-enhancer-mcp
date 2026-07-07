@@ -2,6 +2,7 @@ import { DEFAULT_MODEL, DEFAULT_ENGINE, type TargetModel } from "./config.js";
 import { generateOptimizedPrompt, type ProgressCallback } from "./refine.js";
 import { getCacheKey, getCached, setCached, type CachedResult } from "./cache.js";
 import { loadPreset } from "./preset.js";
+import { lintOptimizedPrompt } from "./lint.js";
 
 export const OPTIMIZE_PROMPT_TOOL = {
   name: "optimize_prompt",
@@ -134,6 +135,14 @@ export async function handleOptimizePrompt(
 
   if (params.show_stats && result.stats) {
     content.push({ type: "text", text: result.stats });
+  }
+
+  const lintWarnings = lintOptimizedPrompt(params.draft, params.context, result.optimizedPrompt);
+  if (lintWarnings.length > 0) {
+    content.push({
+      type: "text",
+      text: `⚠️ **Prompt lint warnings:**\n${lintWarnings.map(w => `- ${w}`).join("\n")}`
+    });
   }
 
   if (params.interactive) {
