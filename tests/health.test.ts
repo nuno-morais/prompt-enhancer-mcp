@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { vi } from "vitest";
 import { handleCheckHealth } from "../src/health.js";
-import { OLLAMA_BASE_URL, DEFAULT_MODEL } from "../src/config.js";
+import { getOllamaBaseUrl, DEFAULT_MODEL } from "../src/config.js";
 
 describe("handleCheckHealth", () => {
   afterEach(() => {
@@ -39,9 +39,9 @@ describe("handleCheckHealth", () => {
 
     const result = await handleCheckHealth({ engine: "ollama" });
 
-    expect(fetchMock).toHaveBeenCalledWith(`${OLLAMA_BASE_URL}/api/tags`);
+    expect(fetchMock).toHaveBeenCalledWith(`${getOllamaBaseUrl()}/api/tags`);
     expect(result.content).toEqual([
-      { type: "text", text: `✅ Ollama reachable at ${OLLAMA_BASE_URL}, model '${DEFAULT_MODEL}' available.` }
+      { type: "text", text: `✅ Ollama reachable at ${getOllamaBaseUrl()}, model '${DEFAULT_MODEL}' available.` }
     ]);
   });
 
@@ -55,7 +55,7 @@ describe("handleCheckHealth", () => {
     const result = await handleCheckHealth({ engine: "ollama" });
 
     expect(result.content).toEqual([
-      { type: "text", text: `⚠️ Ollama is reachable at ${OLLAMA_BASE_URL}, but model '${DEFAULT_MODEL}' is not pulled. Run: ollama pull ${DEFAULT_MODEL}` }
+      { type: "text", text: `⚠️ Ollama is reachable at ${getOllamaBaseUrl()}, but model '${DEFAULT_MODEL}' is not pulled. Run: ollama pull ${DEFAULT_MODEL}` }
     ]);
   });
 
@@ -66,7 +66,7 @@ describe("handleCheckHealth", () => {
     const result = await handleCheckHealth({ engine: "ollama" });
 
     expect(result.content).toEqual([
-      { type: "text", text: `❌ Could not reach Ollama at ${OLLAMA_BASE_URL}. Is Ollama running? Try 'ollama serve'.` }
+      { type: "text", text: `❌ Could not reach Ollama at ${getOllamaBaseUrl()}. Is Ollama running? Try 'ollama serve'.` }
     ]);
   });
 
@@ -81,7 +81,7 @@ describe("handleCheckHealth", () => {
     const result = await handleCheckHealth({ engine: "ollama" });
 
     expect(result.content).toEqual([
-      { type: "text", text: `❌ Ollama at ${OLLAMA_BASE_URL} responded with an error: 500 Internal Server Error` }
+      { type: "text", text: `❌ Ollama at ${getOllamaBaseUrl()} responded with an error: 500 Internal Server Error` }
     ]);
   });
 
@@ -95,7 +95,7 @@ describe("handleCheckHealth", () => {
     const result = await handleCheckHealth({ engine: "ollama", model: "custom-model:latest" });
 
     expect(result.content).toEqual([
-      { type: "text", text: `✅ Ollama reachable at ${OLLAMA_BASE_URL}, model 'custom-model:latest' available.` }
+      { type: "text", text: `✅ Ollama reachable at ${getOllamaBaseUrl()}, model 'custom-model:latest' available.` }
     ]);
   });
 });

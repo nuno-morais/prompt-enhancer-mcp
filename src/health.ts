@@ -1,4 +1,4 @@
-import { DEFAULT_ENGINE, DEFAULT_MODEL, OLLAMA_BASE_URL } from "./config.js";
+import { DEFAULT_ENGINE, DEFAULT_MODEL, getOllamaBaseUrl } from "./config.js";
 import { loadPreset } from "./preset.js";
 import type { LLMEngine } from "./llm.js";
 
@@ -38,13 +38,13 @@ export async function handleCheckHealth(
 
   let response: Response;
   try {
-    response = await fetch(`${OLLAMA_BASE_URL}/api/tags`);
+    response = await fetch(`${getOllamaBaseUrl()}/api/tags`);
   } catch (err) {
     if (err instanceof TypeError && err.message === "fetch failed") {
       return {
         content: [{
           type: "text",
-          text: `❌ Could not reach Ollama at ${OLLAMA_BASE_URL}. Is Ollama running? Try 'ollama serve'.`
+          text: `❌ Could not reach Ollama at ${getOllamaBaseUrl()}. Is Ollama running? Try 'ollama serve'.`
         }]
       };
     }
@@ -55,7 +55,7 @@ export async function handleCheckHealth(
     return {
       content: [{
         type: "text",
-        text: `❌ Ollama at ${OLLAMA_BASE_URL} responded with an error: ${response.status} ${response.statusText}`
+        text: `❌ Ollama at ${getOllamaBaseUrl()} responded with an error: ${response.status} ${response.statusText}`
       }]
     };
   }
@@ -71,7 +71,7 @@ export async function handleCheckHealth(
     return {
       content: [{
         type: "text",
-        text: `⚠️ Ollama is reachable at ${OLLAMA_BASE_URL}, but model '${model}' is not pulled. Run: ollama pull ${model}`
+        text: `⚠️ Ollama is reachable at ${getOllamaBaseUrl()}, but model '${model}' is not pulled. Run: ollama pull ${model}`
       }]
     };
   }
@@ -79,7 +79,7 @@ export async function handleCheckHealth(
   return {
     content: [{
       type: "text",
-      text: `✅ Ollama reachable at ${OLLAMA_BASE_URL}, model '${model}' available.`
+      text: `✅ Ollama reachable at ${getOllamaBaseUrl()}, model '${model}' available.`
     }]
   };
 }
