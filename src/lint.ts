@@ -28,7 +28,7 @@ export function lintOptimizedPrompt(
   for (const match of expansionMatches) {
     const acronym = match[1];
     const expansion = match[2].trim();
-    const draftHasAcronym = new RegExp(`\\b${acronym}\\b`).test(draft);
+    const draftHasAcronym = new RegExp(`\\b${acronym}\\b`, "i").test(draft);
     const expansionSupported = source.includes(expansion.toLowerCase());
     if (draftHasAcronym && !expansionSupported) {
       warnings.push(

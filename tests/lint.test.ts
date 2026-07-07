@@ -50,6 +50,15 @@ describe("lintOptimizedPrompt — acronym expansions", () => {
     expect(warnings).toEqual([]);
   });
 
+  it("flags an expansion even when the draft's acronym is lowercase (the real-world MCP failure)", () => {
+    const warnings = lintOptimizedPrompt(
+      "I want to find the usability of this mcp and check what more other features should we include.",
+      undefined,
+      "<task>Evaluate the MCP (Multi-Criteria Problem) usability.</task>"
+    );
+    expect(warnings.some(w => w.includes("Multi-Criteria Problem") && w.includes("MCP"))).toBe(true);
+  });
+
   it("does not flag an expansion present in the draft itself", () => {
     const warnings = lintOptimizedPrompt(
       "review this API (Application Programming Interface) spec",
