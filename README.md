@@ -209,6 +209,10 @@ prompt, plus a second text block when `explain: true`.
   (draft, then critique/refine); `explain: true` adds a 3rd. A trivial draft
   (`target_model: "generic"`, `brainstorm: false`, ≤15 words) skips the
   critique call entirely — 1 call instead of 2.
+- **Output lint:** every response is checked (no extra LLM calls) for
+  unresolved `{{placeholders}}`, acronym expansions not supported by your
+  draft/context, and leaked meta-commentary. Problems are appended as a
+  `⚠️ Prompt lint warnings` block instead of silently shipping a broken prompt.
 - **Response cache:** identical requests (same `draft` + `target_model` +
   `brainstorm` + `explain` + `model`) are cached in memory for 1 hour
   (100-entry LRU). A cache hit returns instantly with zero Ollama calls.
