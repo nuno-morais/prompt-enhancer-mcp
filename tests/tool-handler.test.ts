@@ -277,4 +277,17 @@ describe("handleOptimizePrompt", () => {
 
     expect(result.content.some(b => b.text.includes("Prompt lint warnings"))).toBe(false);
   });
+
+  it("does not serve a cached result when session_id is provided", async () => {
+    const draft = "session cache bypass draft " + Date.now();
+    const generateSpy = vi.spyOn(refineModule, "generateOptimizedPrompt");
+    generateSpy.mockResolvedValueOnce({ optimizedPrompt: "v1" });
+    generateSpy.mockResolvedValueOnce({ optimizedPrompt: "v2" });
+
+    const first = await handleOptimizePrompt({ draft, session_id: "s-1", interactive: false });
+    const second = await handleOptimizePrompt({ draft, session_id: "s-1", interactive: false });
+
+    expect(first.content[0].text).toBe("v1");
+    expect(second.content[0].text).toBe("v2"); // would be "v1" if cached
+  });
 });

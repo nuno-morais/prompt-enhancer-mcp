@@ -107,10 +107,13 @@ export async function handleOptimizePrompt(
     )
   };
 
-  const cacheKey = getCacheKey(params);
-  const cached = getCached(cacheKey);
-  if (cached) {
-    return cached;
+  const useCache = !params.session_id;
+  const cacheKey = useCache ? getCacheKey(params) : null;
+  if (cacheKey) {
+    const cached = getCached(cacheKey);
+    if (cached) {
+      return cached;
+    }
   }
 
   const onProgress: ProgressCallback | undefined = progress
@@ -153,6 +156,8 @@ export async function handleOptimizePrompt(
   }
 
   const cachedResult: CachedResult = { content };
-  setCached(cacheKey, cachedResult);
+  if (cacheKey) {
+    setCached(cacheKey, cachedResult);
+  }
   return cachedResult;
 }
