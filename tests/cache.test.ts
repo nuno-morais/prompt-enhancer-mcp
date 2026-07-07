@@ -33,6 +33,16 @@ describe("getCacheKey", () => {
   it("changes when model changes", () => {
     expect(getCacheKey(baseParams)).not.toBe(getCacheKey({ ...baseParams, model: "other-model" }));
   });
+
+  it("changes when context changes", () => {
+    expect(getCacheKey(baseParams)).not.toBe(
+      getCacheKey({ ...baseParams, context: "MCP = Model Context Protocol" })
+    );
+  });
+
+  it("treats undefined context and absent context as the same key", () => {
+    expect(getCacheKey(baseParams)).toBe(getCacheKey({ ...baseParams, context: undefined }));
+  });
 });
 
 describe("getCached / setCached", () => {

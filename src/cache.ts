@@ -17,12 +17,20 @@ const cache = new Map<string, CacheEntry>();
 
 export function getCacheKey(params: {
   draft: string;
+  context?: string;
   target_model: TargetModel;
   brainstorm: boolean;
   explain: boolean;
   model: string;
 }): string {
-  const raw = JSON.stringify(params);
+  const raw = JSON.stringify({
+    draft: params.draft,
+    context: params.context ?? null,
+    target_model: params.target_model,
+    brainstorm: params.brainstorm,
+    explain: params.explain,
+    model: params.model
+  });
   return createHash("sha256").update(raw).digest("hex");
 }
 
