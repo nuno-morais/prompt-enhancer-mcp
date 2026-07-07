@@ -205,6 +205,39 @@ Set the port with the `MCP_HTTP_PORT` environment variable (default `3000`). The
 The response is an MCP `content` array: one text block with the optimized
 prompt, plus a second text block when `explain: true`.
 
+## Configuration
+
+### Remote Ollama endpoint
+
+By default, the server talks to Ollama at `http://localhost:11434`. To point it at a remote Ollama instance instead — for example, one exposed through a Cloudflare Tunnel or reverse proxy from a machine you control — set:
+
+- `OLLAMA_BASE_URL` — the base URL of the remote Ollama instance, e.g. `https://your-ollama-host.example.com`. Defaults to `http://localhost:11434`.
+- `OLLAMA_EXTRA_HEADERS` — a JSON object of extra HTTP headers to send with every Ollama request, e.g. `{"CF-Access-Client-Id":"...","CF-Access-Client-Secret":"..."}` if the endpoint sits behind an authenticating proxy such as Cloudflare Access. Defaults to no extra headers.
+
+For the MCP server itself, set these in the `env` block of your MCP host's server configuration (e.g. `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "prompt-enhancer": {
+      "command": "prompt-enhancer-mcp",
+      "env": {
+        "OLLAMA_BASE_URL": "https://your-ollama-host.example.com",
+        "OLLAMA_EXTRA_HEADERS": "{\"CF-Access-Client-Id\":\"...\",\"CF-Access-Client-Secret\":\"...\"}"
+      }
+    }
+  }
+}
+```
+
+For the standalone `mcp` CLI tool, use flags instead (these take precedence over the env vars above):
+
+```bash
+mcp --draft "quick note" --ollama-url https://your-ollama-host.example.com \
+  --ollama-header "CF-Access-Client-Id=..." \
+  --ollama-header "CF-Access-Client-Secret=..."
+```
+
 ## Behavior you should know about
 
 - **Self-critique pipeline:** every non-trivial request makes 2 Ollama calls
