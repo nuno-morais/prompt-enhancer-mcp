@@ -146,9 +146,11 @@ The server exposes one tool, `optimize_prompt`:
 ```json
 {
   "draft": "quero um resumo do texto mas curto",
+  "context": "MCP in this project means Model Context Protocol server",
   "target_model": "claude",
   "brainstorm": false,
   "explain": false,
+  "session_id": "my-iteration-1",
   "auto_cot": true,
   "auto_guardrails": true,
   "show_stats": true,
@@ -235,6 +237,16 @@ prompt, plus a second text block when `explain: true`.
   to its `tools/call` request, the server sends `notifications/progress`
   updates as the pipeline advances through its stages. Clients that don't
   ask for this see no behavior change.
+- **Domain context:** pass `context` with a sentence or two of background
+  (glossary, project description) whenever the draft contains ambiguous or
+  domain-specific terms. The local model uses it only to interpret the draft
+  — it is never rewritten into the output. Without it, small local models
+  will guess what acronyms mean.
+- **Iterating on a prompt:** pass a `session_id` on the first call, then call
+  again with the same `session_id` and your feedback as the new `draft`
+  ("make it shorter", "the MCP here is Model Context Protocol"). The server
+  keeps the conversation and refines the previous prompt instead of starting
+  over. Session requests always bypass the response cache.
 
 ## Manual testing
 
