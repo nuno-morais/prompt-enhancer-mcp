@@ -1,4 +1,4 @@
-import { OLLAMA_BASE_URL } from "./config.js";
+import { getOllamaBaseUrl, getOllamaExtraHeaders } from "./config.js";
 
 const OLLAMA_TIMEOUT_MS = 60_000;
 
@@ -26,9 +26,9 @@ export async function ollamaChat(request: OllamaChatRequest): Promise<OllamaChat
   const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+    const response = await fetch(`${getOllamaBaseUrl()}/api/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getOllamaExtraHeaders() },
       body: JSON.stringify(request),
       signal: controller.signal
     });
@@ -44,7 +44,7 @@ export async function ollamaChat(request: OllamaChatRequest): Promise<OllamaChat
     }
     if (err instanceof TypeError && err.message === "fetch failed") {
       throw new Error(
-        `Could not reach Ollama at ${OLLAMA_BASE_URL}. Is Ollama running? Try 'ollama serve'.`
+        `Could not reach Ollama at ${getOllamaBaseUrl()}. Is Ollama running? Try 'ollama serve'.`
       );
     }
     throw err;

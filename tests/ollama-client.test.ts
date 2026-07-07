@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { ollamaChat } from "../src/ollama-client.js";
-import { OLLAMA_BASE_URL } from "../src/config.js";
+import { getOllamaBaseUrl } from "../src/config.js";
 
 describe("ollamaChat", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it("POSTs to /api/chat with the given request body and returns the parsed response", async () => {
@@ -25,7 +26,7 @@ describe("ollamaChat", () => {
     const result = await ollamaChat(request);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      `${OLLAMA_BASE_URL}/api/chat`,
+      `${getOllamaBaseUrl()}/api/chat`,
       expect.objectContaining({
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -33,6 +34,35 @@ describe("ollamaChat", () => {
       })
     );
     expect(result).toEqual(mockResponse);
+  });
+
+  it("merges OLLAMA_EXTRA_HEADERS into the request headers", async () => {
+    vi.stubEnv("OLLAMA_EXTRA_HEADERS", '{"CF-Access-Client-Id":"abc","CF-Access-Client-Secret":"xyz"}');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ message: { role: "assistant", content: "hi" } })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const request = {
+      model: "test-model",
+      messages: [{ role: "user" as const, content: "hi" }],
+      stream: false as const,
+      options: {}
+    };
+
+    await ollamaChat(request);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: {
+          "Content-Type": "application/json",
+          "CF-Access-Client-Id": "abc",
+          "CF-Access-Client-Secret": "xyz"
+        }
+      })
+    );
   });
 
   it("throws a descriptive error when the response is not ok", async () => {
@@ -98,7 +128,7 @@ describe("ollamaChat", () => {
     };
 
     await expect(ollamaChat(request)).rejects.toThrow(
-      `Could not reach Ollama at ${OLLAMA_BASE_URL}. Is Ollama running? Try 'ollama serve'.`
+      `Could not reach Ollama at ${getOllamaBaseUrl()}. Is Ollama running? Try 'ollama serve'.`
     );
   });
 });
