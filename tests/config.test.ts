@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { getOllamaParams, OLLAMA_BASE_PARAMS } from "../src/config.js";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { getOllamaParams, OLLAMA_BASE_PARAMS, getOllamaBaseUrl, getOllamaExtraHeaders } from "../src/config.js";
 
 describe("getOllamaParams", () => {
   it("returns num_predict: 384 for generic target model", () => {
@@ -30,5 +30,47 @@ describe("getOllamaParams", () => {
       expect(params.repeat_penalty).toBe(OLLAMA_BASE_PARAMS.repeat_penalty);
       expect(params.stop).toEqual(OLLAMA_BASE_PARAMS.stop);
     }
+  });
+});
+
+describe("getOllamaBaseUrl", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("defaults to http://localhost:11434 when OLLAMA_BASE_URL is not set", () => {
+    vi.stubEnv("OLLAMA_BASE_URL", "");
+    expect(getOllamaBaseUrl()).toBe("http://localhost:11434");
+  });
+
+  it("returns OLLAMA_BASE_URL when set", () => {
+    vi.stubEnv("OLLAMA_BASE_URL", "https://your-ollama-host.example.com");
+    expect(getOllamaBaseUrl()).toBe("https://your-ollama-host.example.com");
+  });
+});
+
+describe("getOllamaExtraHeaders", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("returns an empty object when OLLAMA_EXTRA_HEADERS is not set", () => {
+    vi.stubEnv("OLLAMA_EXTRA_HEADERS", "");
+    expect(getOllamaExtraHeaders()).toEqual({});
+  });
+
+  it("parses a valid JSON object from OLLAMA_EXTRA_HEADERS", () => {
+    vi.stubEnv("OLLAMA_EXTRA_HEADERS", '{"CF-Access-Client-Id":"abc","CF-Access-Client-Secret":"xyz"}');
+    expect(getOllamaExtraHeaders()).toEqual({
+      "CF-Access-Client-Id": "abc",
+      "CF-Access-Client-Secret": "xyz"
+    });
+  });
+
+  it("throws a descriptive error when OLLAMA_EXTRA_HEADERS is invalid JSON", () => {
+    vi.stubEnv("OLLAMA_EXTRA_HEADERS", "{not valid json");
+    expect(() => getOllamaExtraHeaders()).toThrow(
+      'OLLAMA_EXTRA_HEADERS is set but is not valid JSON. Expected a flat object, e.g. \'{"CF-Access-Client-Id":"...","CF-Access-Client-Secret":"..."}\''
+    );
   });
 });
