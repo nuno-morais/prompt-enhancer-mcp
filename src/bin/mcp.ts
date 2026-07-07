@@ -3,6 +3,7 @@ import * as commander from 'commander';
 import { handleOptimizePrompt } from '../tool-handler.js';
 import { loadPreset } from '../preset.js';
 import { readFileSync } from 'node:fs';
+import { mergeOllamaHeaderFlags, collectHeader } from './ollama-flags.js';
 
 const program = new commander.Command();
 program
@@ -13,6 +14,8 @@ program
   .option('-e, --explain', 'Include a one‑line explanation of changes')
   .option('-t, --target <model>', 'Target model (generic, claude, gpt4o, gemini)')
   .option('-m, --model <ollama>', 'Override Ollama model name')
+  .option('-u, --ollama-url <url>', 'Override Ollama base URL (e.g. https://your-ollama-host.example.com)')
+  .option('-H, --ollama-header <key=value>', 'Extra header to send to Ollama (repeatable)', collectHeader, {})
   .parse(process.argv);
 
 async function getStdin(): Promise<string> {
@@ -26,6 +29,17 @@ async function getStdin(): Promise<string> {
 
 (async () => {
   const opts = program.opts();
+
+  if (opts.ollamaUrl) {
+    process.env.OLLAMA_BASE_URL = opts.ollamaUrl;
+  }
+  if (opts.ollamaHeader && Object.keys(opts.ollamaHeader).length > 0) {
+    process.env.OLLAMA_EXTRA_HEADERS = mergeOllamaHeaderFlags(
+      process.env.OLLAMA_EXTRA_HEADERS,
+      opts.ollamaHeader
+    );
+  }
+
   const draft = opts.draft ?? (await getStdin());
   if (!draft) {
     console.error('Error: No draft provided. Use --draft or pipe input.');
