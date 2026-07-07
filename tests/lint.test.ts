@@ -30,3 +30,47 @@ describe("lintOptimizedPrompt — placeholders", () => {
     expect(warnings[0].split("{{a}}")).toHaveLength(2);
   });
 });
+
+describe("lintOptimizedPrompt — acronym expansions", () => {
+  it("flags an expansion of a draft acronym that appears nowhere in draft or context", () => {
+    const warnings = lintOptimizedPrompt(
+      "evaluate the usability of this MCP",
+      undefined,
+      "<task>Evaluate the MCP (Multi-Criteria Problem) usability.</task>"
+    );
+    expect(warnings.some(w => w.includes("Multi-Criteria Problem") && w.includes("MCP"))).toBe(true);
+  });
+
+  it("does not flag an expansion that the context supports", () => {
+    const warnings = lintOptimizedPrompt(
+      "evaluate this MCP",
+      "MCP means Model Context Protocol server",
+      "<task>Evaluate the MCP (Model Context Protocol) server.</task>"
+    );
+    expect(warnings).toEqual([]);
+  });
+
+  it("does not flag an expansion present in the draft itself", () => {
+    const warnings = lintOptimizedPrompt(
+      "review this API (Application Programming Interface) spec",
+      undefined,
+      "Review the API (Application Programming Interface) specification."
+    );
+    expect(warnings).toEqual([]);
+  });
+});
+
+describe("lintOptimizedPrompt — meta-commentary", () => {
+  it("flags leaked critic phrases", () => {
+    const warnings = lintOptimizedPrompt(
+      "draft",
+      undefined,
+      "Here is the improved prompt:\nSummarize the text."
+    );
+    expect(warnings.some(w => w.toLowerCase().includes("meta-commentary"))).toBe(true);
+  });
+
+  it("does not flag prompts without leading commentary", () => {
+    expect(lintOptimizedPrompt("draft", undefined, "Summarize the text.")).toEqual([]);
+  });
+});
