@@ -39,6 +39,15 @@ Write a Python function called \`validate_email\` that:
 - Includes a docstring and 3 usage examples in comments.
 \`\`\`
 
+<user_draft>check our KPX pipeline for problems and suggest fixes</user_draft>
+\`\`\`text
+Review the KPX pipeline configuration below for problems (misconfigurations,
+failure-prone steps, missing error handling) and suggest concrete fixes for
+each problem found.
+
+Pipeline configuration: {{kpx_pipeline_config}}
+\`\`\`
+
 Now rewrite the content of <user_draft> following exactly this pattern.
 `;
 

@@ -73,4 +73,11 @@ describe("getMetaPromptConfig", () => {
       expect(systemPrompt).toContain("Never expand or define acronyms");
     }
   });
+
+  it("generic prompt contains a few-shot example preserving an unknown acronym", () => {
+    const { systemPrompt } = getMetaPromptConfig("generic", false);
+    expect(systemPrompt).toContain("KPX");
+    // the example output must keep the acronym without a parenthesized expansion
+    expect(systemPrompt).not.toMatch(/KPX\s*\(/);
+  });
 });
