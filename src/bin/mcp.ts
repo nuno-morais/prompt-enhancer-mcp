@@ -16,6 +16,11 @@ program
   .option('-m, --model <ollama>', 'Override Ollama model name')
   .option('-u, --ollama-url <url>', 'Override Ollama base URL (e.g. https://your-ollama-host.example.com)')
   .option('-H, --ollama-header <key=value>', 'Extra header to send to Ollama (repeatable)', collectHeader, {})
+  .option('-s, --session <id>', 'Session ID to maintain conversation state across calls')
+  .option('--no-cot', 'Disable automatic Chain-of-Thought injection')
+  .option('--no-guardrails', 'Disable automatic negative-constraint (guardrail) injection')
+  .option('--stats', 'Include token count and efficiency stats in the output')
+  .option('--engine <engine>', 'LLM engine to use (ollama or anthropic)')
   .parse(process.argv);
 
 async function getStdin(): Promise<string> {
@@ -51,6 +56,11 @@ async function getStdin(): Promise<string> {
     explain: !!opts.explain,
     target_model: opts.target,
     model: opts.model,
+    session_id: opts.session,
+    auto_cot: opts.cot,
+    auto_guardrails: opts.guardrails,
+    show_stats: !!opts.stats,
+    engine: opts.engine,
   };
   try {
     const result = await handleOptimizePrompt(args);
