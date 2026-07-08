@@ -7,6 +7,7 @@ import { requiresCoT, injectCoT } from "./cot-injector.js";
 import { generateNegativeConstraints, injectGuardrails } from "./guardrails.js";
 import { calculateStats, formatStatsString } from "./stats.js";
 import { classifyIntent, buildIntentLine, injectIntentLine, type IntentResult } from "./intent-classifier.js";
+import { diffLines } from "./diff.js";
 
 const CRITIC_SYSTEM_PROMPT = `
 You are a meticulous Prompt Engineering reviewer. You will receive the ORIGINAL
@@ -109,9 +110,10 @@ export async function generateOptimizedPrompt(
     auto_guardrails?: boolean;
     show_stats?: boolean;
     auto_intent?: boolean;
+    show_diff?: boolean;
   },
   onProgress?: ProgressCallback
-): Promise<{ optimizedPrompt: string; explanation?: string; stats?: string; intentResult?: IntentResult }> {
+): Promise<{ optimizedPrompt: string; explanation?: string; stats?: string; intentResult?: IntentResult; diff?: string }> {
   const session = params.session_id ? getSession(params.session_id) : undefined;
 
   const autoIntent = params.auto_intent !== false;
@@ -166,10 +168,11 @@ export async function generateOptimizedPrompt(
 
     saveSession(params.session_id!, messages);
 
+    const previousPrompt = extractCodeBlock(session.messages[session.messages.length - 1].content);
+
     let explanation: string | undefined;
     if (params.explain) {
       onProgress?.(2, 2, "Generating change summary...");
-      const previousPrompt = extractCodeBlock(session.messages[session.messages.length - 1].content);
       const explainPrompt = EXPLAIN_SYSTEM_PROMPT
         .split("{{draft_a}}").join(previousPrompt)
         .split("{{draft_b}}").join(newPrompt);
@@ -194,7 +197,8 @@ export async function generateOptimizedPrompt(
     return {
       optimizedPrompt: newPrompt,
       explanation,
-      stats
+      stats,
+      diff: params.show_diff ? diffLines(previousPrompt, newPrompt) : undefined
     };
   }
 
@@ -262,7 +266,8 @@ export async function generateOptimizedPrompt(
         ? (intentNote ? `${SKIP_CRITIC_EXPLANATION} ${intentNote}` : SKIP_CRITIC_EXPLANATION)
         : undefined,
       stats,
-      intentResult
+      intentResult,
+      diff: params.show_diff ? "(critic pass skipped — no diff available)" : undefined
     };
   }
 
@@ -294,6 +299,8 @@ export async function generateOptimizedPrompt(
   let intentNote: string | undefined;
   ({ finalPrompt, intentResult, intentNote } = await applyIntentLine(finalPrompt, intentPromise, intentResult, autoEnabledBrainstorm, params.target_model));
 
+  const diff = params.show_diff ? diffLines(firstDraftPrompt, finalPrompt) : undefined;
+
   if (params.session_id) {
     messages.push({
       role: "assistant",
@@ -308,7 +315,7 @@ export async function generateOptimizedPrompt(
   }
 
   if (!params.explain) {
-    return { optimizedPrompt: finalPrompt, stats, intentResult };
+    return { optimizedPrompt: finalPrompt, stats, intentResult, diff };
   }
 
   onProgress?.(3, total, "Generating change summary...");
@@ -333,6 +340,7 @@ export async function generateOptimizedPrompt(
       ? `${explainResponse.message.content.trim()} ${intentNote}`
       : explainResponse.message.content.trim(),
     stats,
-    intentResult
+    intentResult,
+    diff
   };
 }

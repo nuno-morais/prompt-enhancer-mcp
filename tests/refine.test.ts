@@ -568,4 +568,66 @@ describe("intent classification integration", () => {
     });
     expect(result.explanation).toContain("brainstorm");
   });
+
+  it("returns a line diff between first draft and final prompt when show_diff is true", async () => {
+    const fetchMock = mockFirstAndSecondCalls(
+      "```text\n<task>Do X</task>\n```",
+      "```text\n<task>Do X precisely</task>\n```"
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateOptimizedPrompt({
+      draft: LONG_DRAFT,
+      target_model: "claude",
+      brainstorm: false,
+      explain: false,
+      engine: "ollama",
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: false,
+      show_diff: true
+    });
+
+    expect(result.diff).toBe("- <task>Do X</task>\n+ <task>Do X precisely</task>");
+  });
+
+  it("returns no diff when show_diff is false", async () => {
+    const fetchMock = mockFirstAndSecondCalls("```text\na\n```", "```text\nb\n```");
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateOptimizedPrompt({
+      draft: LONG_DRAFT,
+      target_model: "claude",
+      brainstorm: false,
+      explain: false,
+      engine: "ollama",
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: false
+    });
+
+    expect(result.diff).toBeUndefined();
+  });
+
+  it("reports no diff available for trivial drafts when show_diff is true", async () => {
+    const fetchMock = mockFirstAndSecondCalls("```text\nshort answer\n```", "```text\nunused\n```");
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateOptimizedPrompt({
+      draft: "short trivial draft",
+      target_model: "generic",
+      brainstorm: false,
+      explain: false,
+      engine: "ollama",
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: false,
+      show_diff: true
+    });
+
+    expect(result.diff).toBe("(critic pass skipped — no diff available)");
+  });
 });
