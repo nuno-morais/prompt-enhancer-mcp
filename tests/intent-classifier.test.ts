@@ -54,12 +54,22 @@ describe("classifyIntent", () => {
     });
     const result = await classifyIntent("draft", undefined, "model", "ollama", {});
     expect(result.intent).toBe("self_contained");
+    expect(result.fallback).toBe("unrecognized_response");
   });
 
   it("returns self_contained and does not throw when the LLM call rejects", async () => {
     vi.spyOn(llm, "generateChat").mockRejectedValue(new Error("network error"));
     const result = await classifyIntent("draft", undefined, "model", "ollama", {});
     expect(result.intent).toBe("self_contained");
+    expect(result.fallback).toBe("classifier_error");
+  });
+
+  it("does not set fallback on a clean classification", async () => {
+    vi.spyOn(llm, "generateChat").mockResolvedValue({
+      message: { role: "assistant", content: "SELF_CONTAINED" }
+    });
+    const result = await classifyIntent("draft", undefined, "model", "ollama", {});
+    expect(result.fallback).toBeUndefined();
   });
 
   it("includes context in the user message when provided", async () => {

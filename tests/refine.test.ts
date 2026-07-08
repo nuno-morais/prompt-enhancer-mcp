@@ -474,6 +474,25 @@ describe("intent classification integration", () => {
     expect(result.intentResult?.intent).toBe("web_search");
   });
 
+  it("surfaces the fallback reason in the explanation when classification is unrecognized", async () => {
+    mockLLM("I'm not sure, maybe self contained?");
+    const result = await generateOptimizedPrompt({
+      draft: "short trivial draft",
+      target_model: "generic",
+      brainstorm: undefined,
+      explain: true,
+      engine: "ollama",
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: true
+    });
+
+    expect(result.intentResult?.fallback).toBe("unrecognized_response");
+    expect(result.explanation).toContain("fell back to self_contained");
+    expect(result.explanation).toContain("unrecognized response");
+  });
+
   it("performs no classification call when auto_intent is false", async () => {
     const fetchMock = mockLLM("WEB_SEARCH");
     const result = await generateOptimizedPrompt({

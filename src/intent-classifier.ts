@@ -7,6 +7,7 @@ export type Intent = "web_search" | "user_artifact" | "brainstorm" | "self_conta
 export type IntentResult = {
   intent: Intent;
   artifactName?: string;
+  fallback?: "unrecognized_response" | "classifier_error";
 };
 
 const INTENT_CLASSIFIER_PROMPT = `
@@ -65,7 +66,7 @@ export async function classifyIntent(
     const [token, name] = answer.split(/\s+/);
     const intent = INTENT_TOKENS[token?.toUpperCase() ?? ""];
     if (!intent) {
-      return { intent: "self_contained" };
+      return { intent: "self_contained", fallback: "unrecognized_response" };
     }
     if (intent === "user_artifact") {
       const artifactName = name && /^[a-z][a-z0-9_]*$/i.test(name) ? name : "artifact";
@@ -74,7 +75,7 @@ export async function classifyIntent(
     return { intent };
   } catch (error) {
     console.error("Intent classifier failed, defaulting to self_contained:", error);
-    return { intent: "self_contained" };
+    return { intent: "self_contained", fallback: "classifier_error" };
   }
 }
 

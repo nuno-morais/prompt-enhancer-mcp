@@ -80,9 +80,17 @@ async function applyIntentLine(
   if (intentLine) {
     finalPrompt = injectIntentLine(finalPrompt, intentLine, targetModel);
   }
-  const intentNote = autoEnabledBrainstorm
-    ? "Detected ideation draft; enabled brainstorm mode."
-    : (intentLine ? `Detected intent: ${intentResult!.intent}; added a capability instruction.` : undefined);
+  let intentNote: string | undefined;
+  if (autoEnabledBrainstorm) {
+    intentNote = "Detected ideation draft; enabled brainstorm mode.";
+  } else if (intentLine) {
+    intentNote = `Detected intent: ${intentResult!.intent}; added a capability instruction.`;
+  } else if (intentResult?.fallback) {
+    const reason = intentResult.fallback === "classifier_error"
+      ? "classifier call failed"
+      : "classifier returned an unrecognized response";
+    intentNote = `Intent classification fell back to self_contained (${reason}); no capability instruction added.`;
+  }
 
   return { finalPrompt, intentResult, intentNote };
 }
