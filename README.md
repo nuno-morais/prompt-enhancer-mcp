@@ -254,14 +254,17 @@ mcp --draft "quick note" --ollama-url https://your-ollama-host.example.com \
 - **Response cache:** identical requests (same `draft` + `target_model` +
   `brainstorm` + `explain` + `model`) are cached in memory for 1 hour
   (100-entry LRU). A cache hit returns instantly with zero Ollama calls.
-- **Intent classification:** unless `auto_intent: false`, a small parallel
-  classification pass tags each draft as needing web search, a user-provided
-  artifact, brainstorming, or nothing. Web-search/artifact intents add one
-  instruction line to the optimized prompt; an ideation draft auto-enables
-  brainstorm mode when you didn't set `brainstorm` yourself. Explicit
-  `brainstorm` (argument or preset) always wins. Wrong classifications are
-  harmless: the line is advisory prose, and any failure falls back to
-  injecting nothing. Session (`session_id`) refinement calls never re-classify.
+- **Intent classification:** unless `auto_intent: false`, classification tags
+  each draft as needing web search, a user-provided artifact, brainstorming,
+  or nothing. It runs in parallel with the first draft when `brainstorm` is
+  explicitly set; when `brainstorm` is left unset (the default), it runs
+  sequentially before the first draft, since its result determines whether
+  brainstorm mode is used. Web-search/artifact intents add one instruction
+  line to the optimized prompt; an ideation draft auto-enables brainstorm mode
+  when you didn't set `brainstorm` yourself. Explicit `brainstorm` (argument
+  or preset) always wins. Wrong classifications are harmless: the line is
+  advisory prose, and any failure falls back to injecting nothing. Session
+  (`session_id`) refinement calls never re-classify.
 - **Project presets:** drop a `.prompt-enhancer.json` file anywhere in your
   project (the server searches upward from its working directory to find
   it, like `.eslintrc`) to set project-wide defaults.
