@@ -140,9 +140,13 @@ Since this tool uses the standard Model Context Protocol, it can be connected to
 
 If your client provides a UI to add tools instead of a configuration file, use the equivalent shell command: `npx -y --package=@nuno-morais/prompt-enhancer-mcp@latest prompt-enhancer-mcp`.
 
-## Calling the tool
+## Calling the tools
 
-The server exposes one tool, `optimize_prompt`:
+The server exposes three tools: `optimize_prompt`, `lint_prompt`, and `score_prompt`.
+
+### optimize_prompt
+
+Optimizes a rough prompt draft using a local LLM before sending it to a paid API.
 
 ```json
 {
@@ -155,6 +159,7 @@ The server exposes one tool, `optimize_prompt`:
   "auto_cot": true,
   "auto_guardrails": true,
   "auto_intent": true,
+  "auto_repair": true,
   "show_stats": true,
   "show_diff": false,
   "engine": "ollama",
@@ -163,6 +168,35 @@ The server exposes one tool, `optimize_prompt`:
 ```
 
 Only `draft` is required — every other field has a default.
+
+### lint_prompt
+
+Checks any prompt for common issues without making LLM calls. Detects unresolved placeholders (`{{placeholder}}`), suspect acronym expansions (against the glossary), and leaked meta-commentary.
+
+```json
+{
+  "prompt": "Here is the optimized prompt.",
+  "draft": "Original draft text (optional; enables draft-comparison rules)",
+  "context": "Background context (optional)"
+}
+```
+
+Only `prompt` is required. When `draft` is provided, lint runs acronym expansion checks.
+
+### score_prompt
+
+Judge-grades a prompt 1-5 on five dimensions: clarity, specificity, structure, guardrails, and token efficiency. Pass `baseline` to switch to comparison mode.
+
+```json
+{
+  "prompt": "The prompt to score",
+  "baseline": "Optional second prompt for comparison mode",
+  "engine": "ollama",
+  "model": "llama3.1:8b"
+}
+```
+
+Only `prompt` is required. Comparison mode shows per-dimension deltas and a winner verdict.
 
 ## HTTP API
 
@@ -201,9 +235,10 @@ Set the port with the `MCP_HTTP_PORT` environment variable (default `3000`). The
 | `auto_cot` | boolean | `true` | Automatically injects a `<thinking>` block tailored to the `target_model` for complex requests, improving reasoning. |
 | `auto_guardrails` | boolean | `true` | Automatically detects potential hallucination risks and injects a strict `<negative_constraints>` block (`DO NOT...`). |
 | `auto_intent` | boolean | `true` | Classifies the draft's intent and injects a matching instruction line ("search the web…", "ask the user for {{artifact}}…"). When `brainstorm` is not set, an ideation draft auto-enables brainstorm mode. |
+| `auto_repair` | boolean | `true` | Automatically fixes repairable lint findings (e.g. wrong acronym expansions covered by the glossary) with one extra critic pass. Unfixable findings are still surfaced as warnings. |
 | `show_stats` | boolean | `false` | Returns an additional text block detailing token expansion and efficiency metrics. |
 | `interactive` | boolean | `true` | When true, instructs the MCP client NOT to answer the optimized prompt immediately, but instead present it to the user for approval. |
-| `engine` | `"ollama"` \| `"anthropic"` | `"ollama"` | Choose the backend engine. If using `anthropic`, you must set the `ANTHROPIC_API_KEY` environment variable. |
+| `engine` | `"ollama"` \| `"anthropic"` \| `"sampling"` | `"ollama"` | Choose the backend engine. If using `anthropic`, you must set the `ANTHROPIC_API_KEY` environment variable. The `sampling` engine is opt-in and only available when connected to an MCP client that advertises the sampling capability; see [Sampling engine](#sampling-engine) below. |
 | `model` | string | `qcwind/qwen...` | Override which model runs the pipeline. If `engine` is `anthropic`, defaults to `claude-3-5-haiku-latest`, but you can explicitly set it to `claude-3-5-sonnet-latest` or any other valid model! |
 
 The response is an MCP `content` array: one text block with the optimized
@@ -242,6 +277,14 @@ mcp --draft "quick note" --ollama-url https://your-ollama-host.example.com \
   --ollama-header "CF-Access-Client-Secret=..."
 ```
 
+### Sampling engine
+
+The `sampling` engine is an optional third choice that uses the connected MCP client's own model via MCP sampling, instead of Ollama or Anthropic. It is **opt-in only** — set `engine: "sampling"` in your `.prompt-enhancer.json` preset or pass it to the MCP tool directly. The connected MCP client must advertise the sampling capability for this to work.
+
+**Important:** the `sampling` engine is **not available from the CLI**. If you try to use `--engine sampling` with the `mcp` command-line tool, it will exit with an error. Use it only when calling `optimize_prompt` as an MCP tool from a supporting client (Claude Desktop, Claude Code, etc.).
+
+You can check if the connected client supports sampling by calling the `check_health` tool — it will report whether the capability is available.
+
 ## Behavior you should know about
 
 - **Self-critique pipeline:** every non-trivial request makes 2 Ollama calls
@@ -252,6 +295,7 @@ mcp --draft "quick note" --ollama-url https://your-ollama-host.example.com \
   unresolved `{{placeholders}}`, acronym expansions not supported by your
   draft/context, and leaked meta-commentary. Problems are appended as a
   `⚠️ Prompt lint warnings` block instead of silently shipping a broken prompt.
+- **Auto-repair:** when `auto_repair: true` (the default), `optimize_prompt` automatically fixes repairable lint findings (such as wrong acronym expansions covered by your `glossary`) with one extra critic pass. Unfixable findings are still surfaced as warnings. You can disable this with `auto_repair: false` or the `--no-auto-repair` CLI flag.
 - **Response cache:** identical requests (same `draft` + `target_model` +
   `brainstorm` + `explain` + `model`) are cached in memory for 1 hour
   (100-entry LRU). A cache hit returns instantly with zero Ollama calls.
@@ -279,7 +323,15 @@ mcp --draft "quick note" --ollama-url https://your-ollama-host.example.com \
   ```json
   { "engine": "anthropic", "model": "claude-3-5-sonnet-latest", "target_model": "claude", "explain": true, "show_stats": true }
   ```
+  
+  With a glossary (authoritative term definitions for lint and auto-repair):
+  ```json
+  { "target_model": "claude", "explain": true, "glossary": { "MCP": "Model Context Protocol", "LLM": "Large Language Model" } }
+  ```
+  
   Any parameter can be set this way. An explicit argument in a tool call always overrides the preset.
+  
+  **Glossary:** the `glossary` key lets you define authoritative meanings for acronyms and terms in your project. When set, `lint_prompt` will flag acronym expansions that don't match the glossary, and `optimize_prompt` with `auto_repair: true` (the default) will automatically fix wrong expansions on a second pass. Example: `{"glossary": {"MCP": "Model Context Protocol"}}`.
 - **Diff view:** `show_diff: true` appends a line diff showing exactly what
   the self-critique pass changed between the first draft and the final
   prompt. Computed locally — no extra LLM calls. For trivial drafts (critic
