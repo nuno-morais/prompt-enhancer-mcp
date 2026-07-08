@@ -168,7 +168,7 @@ export async function handleOptimizePrompt(
   if (lintWarnings.length > 0) {
     content.push({
       type: "text",
-      text: `⚠️ **Prompt lint warnings:**\n${lintWarnings.map(w => `- ${w}`).join("\n")}`
+      text: `⚠️ **Prompt lint warnings:**\n${lintWarnings.map(w => `- ${w.message}`).join("\n")}`
     });
   }
 

@@ -13,8 +13,8 @@ describe("lintOptimizedPrompt — placeholders", () => {
       "<task>Summarize</task>\n<content>{{document_text}}</content>"
     );
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain("{{document_text}}");
-    expect(warnings[0]).toContain("placeholder");
+    expect(warnings[0].message).toContain("{{document_text}}");
+    expect(warnings[0].message).toContain("placeholder");
   });
 
   it("lists each distinct placeholder once", () => {
@@ -24,10 +24,10 @@ describe("lintOptimizedPrompt — placeholders", () => {
       "{{a}} then {{b}} then {{a}} again"
     );
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain("{{a}}");
-    expect(warnings[0]).toContain("{{b}}");
+    expect(warnings[0].message).toContain("{{a}}");
+    expect(warnings[0].message).toContain("{{b}}");
     // {{a}} appears once in the message
-    expect(warnings[0].split("{{a}}")).toHaveLength(2);
+    expect(warnings[0].message.split("{{a}}")).toHaveLength(2);
   });
 });
 
@@ -38,7 +38,7 @@ describe("lintOptimizedPrompt — acronym expansions", () => {
       undefined,
       "<task>Evaluate the MCP (Multi-Criteria Problem) usability.</task>"
     );
-    expect(warnings.some(w => w.includes("Multi-Criteria Problem") && w.includes("MCP"))).toBe(true);
+    expect(warnings.some(w => w.message.includes("Multi-Criteria Problem") && w.message.includes("MCP"))).toBe(true);
   });
 
   it("does not flag an expansion that the context supports", () => {
@@ -56,7 +56,7 @@ describe("lintOptimizedPrompt — acronym expansions", () => {
       undefined,
       "<task>Evaluate the MCP (Multi-Criteria Problem) usability.</task>"
     );
-    expect(warnings.some(w => w.includes("Multi-Criteria Problem") && w.includes("MCP"))).toBe(true);
+    expect(warnings.some(w => w.message.includes("Multi-Criteria Problem") && w.message.includes("MCP"))).toBe(true);
   });
 
   it("does not flag an expansion present in the draft itself", () => {
@@ -76,7 +76,7 @@ describe("lintOptimizedPrompt — meta-commentary", () => {
       undefined,
       "Here is the improved prompt:\nSummarize the text."
     );
-    expect(warnings.some(w => w.toLowerCase().includes("meta-commentary"))).toBe(true);
+    expect(warnings.some(w => w.message.toLowerCase().includes("meta-commentary"))).toBe(true);
   });
 
   it("does not flag prompts without leading commentary", () => {
@@ -87,7 +87,7 @@ describe("lintOptimizedPrompt — meta-commentary", () => {
 describe("expected artifact placeholder", () => {
   it("warns when the expected placeholder is missing from the output", () => {
     const warnings = lintOptimizedPrompt("draft", undefined, "A prompt without it.", "{{pipeline_config}}");
-    expect(warnings.some(w => w.includes("{{pipeline_config}}") && w.includes("dropped"))).toBe(true);
+    expect(warnings.some(w => w.message.includes("{{pipeline_config}}") && w.message.includes("dropped"))).toBe(true);
   });
 
   it("does not flag the expected placeholder as unresolved when present", () => {
@@ -97,7 +97,41 @@ describe("expected artifact placeholder", () => {
 
   it("still flags other placeholders as unresolved", () => {
     const warnings = lintOptimizedPrompt("draft", undefined, "Use {{pipeline_config}} and {{other}}.", "{{pipeline_config}}");
-    expect(warnings.some(w => w.includes("{{other}}"))).toBe(true);
-    expect(warnings.some(w => w.includes("Unresolved") && w.includes("{{pipeline_config}}"))).toBe(false);
+    expect(warnings.some(w => w.message.includes("{{other}}"))).toBe(true);
+    expect(warnings.some(w => w.message.includes("Unresolved") && w.message.includes("{{pipeline_config}}"))).toBe(false);
+  });
+});
+
+describe("lintOptimizedPrompt — structured warnings", () => {
+  it("marks placeholder warnings as not repairable", () => {
+    const w = lintOptimizedPrompt("summarize my doc", undefined, "Summarize {{document_text}}.");
+    expect(w[0].kind).toBe("unresolved_placeholder");
+    expect(w[0].repairable).toBe(false);
+  });
+
+  it("marks meta-commentary as repairable", () => {
+    const w = lintOptimizedPrompt("do x", undefined, "Here is the prompt: Do X.");
+    expect(w[0].kind).toBe("meta_commentary");
+    expect(w[0].repairable).toBe(true);
+  });
+
+  it("marks suspect expansion repairable only when the glossary defines the acronym", () => {
+    const prompt = "Review the MCP (Multi-Criteria Problem) usability.";
+    const without = lintOptimizedPrompt("review my MCP", undefined, prompt);
+    expect(without[0].kind).toBe("suspect_expansion");
+    expect(without[0].repairable).toBe(false);
+
+    const withGlossary = lintOptimizedPrompt("review my MCP", undefined, prompt, undefined, {
+      MCP: "Model Context Protocol"
+    });
+    expect(withGlossary[0].repairable).toBe(true);
+  });
+
+  it("does not flag an expansion that matches the glossary", () => {
+    const prompt = "Review the MCP (Model Context Protocol) server.";
+    const w = lintOptimizedPrompt("review my MCP", undefined, prompt, undefined, {
+      MCP: "Model Context Protocol"
+    });
+    expect(w).toEqual([]);
   });
 });

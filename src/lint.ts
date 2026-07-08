@@ -1,4 +1,7 @@
 // src/lint.ts
+export type LintKind = "unresolved_placeholder" | "dropped_placeholder" | "suspect_expansion" | "meta_commentary";
+export type LintWarning = { message: string; kind: LintKind; repairable: boolean };
+
 const META_COMMENTARY_PATTERNS = [
   /^here is /i,
   /^here's /i,
@@ -11,22 +14,27 @@ export function lintOptimizedPrompt(
   draft: string,
   context: string | undefined,
   optimizedPrompt: string,
-  expectedPlaceholder?: string
-): string[] {
-  const warnings: string[] = [];
+  expectedPlaceholder?: string,
+  glossary?: Record<string, string>
+): LintWarning[] {
+  const warnings: LintWarning[] = [];
 
   const placeholders = [...new Set(optimizedPrompt.match(/\{\{[a-zA-Z0-9_]+\}\}/g) ?? [])]
     .filter(p => p !== expectedPlaceholder);
   if (placeholders.length > 0) {
-    warnings.push(
-      `Unresolved placeholder(s) ${placeholders.join(", ")} — fill these in before using the prompt.`
-    );
+    warnings.push({
+      message: `Unresolved placeholder(s) ${placeholders.join(", ")} — fill these in before using the prompt.`,
+      kind: "unresolved_placeholder",
+      repairable: false
+    });
   }
 
   if (expectedPlaceholder && !optimizedPrompt.includes(expectedPlaceholder)) {
-    warnings.push(
-      `The intent classifier asked for ${expectedPlaceholder}, but it was dropped from the final prompt — the artifact request may be missing.`
-    );
+    warnings.push({
+      message: `The intent classifier asked for ${expectedPlaceholder}, but it was dropped from the final prompt — the artifact request may be missing.`,
+      kind: "dropped_placeholder",
+      repairable: false
+    });
   }
 
   // Acronym expansions: "XYZ (Some Expansion Words)" in output where the
@@ -38,17 +46,28 @@ export function lintOptimizedPrompt(
     const expansion = match[2].trim();
     const draftHasAcronym = new RegExp(`\\b${acronym}\\b`, "i").test(draft);
     const expansionSupported = source.includes(expansion.toLowerCase());
+
+    // Check if glossary has this acronym and matches the expansion (case-insensitive)
+    const glossaryExpansion = glossary?.[acronym];
+    if (glossaryExpansion && expansion.toLowerCase() === glossaryExpansion.toLowerCase()) {
+      continue;
+    }
+
     if (draftHasAcronym && !expansionSupported) {
-      warnings.push(
-        `The prompt expands "${acronym}" as "${expansion}", but that expansion appears in neither the draft nor the context — verify it is correct.`
-      );
+      warnings.push({
+        message: `The prompt expands "${acronym}" as "${expansion}", but that expansion appears in neither the draft nor the context — verify it is correct.`,
+        kind: "suspect_expansion",
+        repairable: Boolean(glossaryExpansion)
+      });
     }
   }
 
   if (META_COMMENTARY_PATTERNS.some(p => p.test(optimizedPrompt.trimStart()))) {
-    warnings.push(
-      "The prompt starts with meta-commentary (e.g. \"Here is…\") that leaked from the rewriting model — remove it before use."
-    );
+    warnings.push({
+      message: "The prompt starts with meta-commentary (e.g. \"Here is…\") that leaked from the rewriting model — remove it before use.",
+      kind: "meta_commentary",
+      repairable: true
+    });
   }
 
   return warnings;
