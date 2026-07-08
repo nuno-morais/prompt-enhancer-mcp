@@ -374,4 +374,71 @@ describe("auto_intent parameter", () => {
 
     expect(result.content.find(b => b.text.includes("Critic pass diff"))).toBeUndefined();
   });
+
+  it("includes glossary in context when preset has glossary and no caller context", async () => {
+    vi.spyOn(presetModule, "loadPreset").mockReturnValue({
+      glossary: { MCP: "Model Context Protocol" }
+    });
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+    const generateSpy = vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "optimized text"
+    });
+
+    await handleOptimizePrompt({ draft: "hello world", interactive: false });
+
+    expect(generateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: "Glossary (authoritative term meanings):\nMCP = Model Context Protocol"
+      })
+    );
+  });
+
+  it("merges glossary with caller context when both are present", async () => {
+    vi.spyOn(presetModule, "loadPreset").mockReturnValue({
+      glossary: { MCP: "Model Context Protocol" }
+    });
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+    const generateSpy = vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "optimized text"
+    });
+
+    await handleOptimizePrompt({
+      draft: "hello world",
+      context: "This is a project about widgets.",
+      interactive: false
+    });
+
+    expect(generateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: "This is a project about widgets.\n\nGlossary (authoritative term meanings):\nMCP = Model Context Protocol"
+      })
+    );
+  });
+
+  it("passes glossary to lintOptimizedPrompt", async () => {
+    vi.spyOn(presetModule, "loadPreset").mockReturnValue({
+      glossary: { MCP: "Model Context Protocol" }
+    });
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+    vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "Here is the optimized prompt"
+    });
+
+    // We need to spy on lintOptimizedPrompt to verify it receives the glossary
+    const lintModule = await import("../src/lint.js");
+    const lintSpy = vi.spyOn(lintModule, "lintOptimizedPrompt").mockReturnValue([]);
+
+    await handleOptimizePrompt({ draft: "hello world", interactive: false });
+
+    expect(lintSpy).toHaveBeenCalledWith(
+      "hello world",
+      undefined,
+      "Here is the optimized prompt",
+      undefined,
+      { MCP: "Model Context Protocol" }
+    );
+  });
 });

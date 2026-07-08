@@ -1,7 +1,7 @@
 import { DEFAULT_MODEL, DEFAULT_ENGINE, type TargetModel } from "./config.js";
 import { generateOptimizedPrompt, type ProgressCallback } from "./refine.js";
 import { getCacheKey, getCached, setCached, type CachedResult } from "./cache.js";
-import { loadPreset } from "./preset.js";
+import { loadPreset, formatGlossary } from "./preset.js";
 import { lintOptimizedPrompt } from "./lint.js";
 
 export const OPTIMIZE_PROMPT_TOOL = {
@@ -100,9 +100,13 @@ export async function handleOptimizePrompt(
 
   const preset = loadPreset();
 
+  const glossary = preset.glossary;
+  const glossaryBlock = glossary ? formatGlossary(glossary) : undefined;
+  const mergedContext = [args.context, glossaryBlock].filter(Boolean).join("\n\n") || undefined;
+
   const params = {
     draft: args.draft,
-    context: args.context,
+    context: mergedContext,
     target_model: args.target_model ?? preset.target_model ?? "generic" as TargetModel,
     brainstorm: args.brainstorm ?? preset.brainstorm,
     explain: args.explain ?? preset.explain ?? false,
@@ -164,7 +168,7 @@ export async function handleOptimizePrompt(
   const expectedPlaceholder = result.intentResult?.intent === "user_artifact"
     ? `{{${result.intentResult.artifactName ?? "artifact"}}}`
     : undefined;
-  const lintWarnings = lintOptimizedPrompt(params.draft, params.context, result.optimizedPrompt, expectedPlaceholder);
+  const lintWarnings = lintOptimizedPrompt(params.draft, args.context, result.optimizedPrompt, expectedPlaceholder, glossary);
   if (lintWarnings.length > 0) {
     content.push({
       type: "text",

@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadPreset } from "../src/preset.js";
+import { loadPreset, formatGlossary } from "../src/preset.js";
 import type { TargetModel } from "../src/config.js";
 
 describe("loadPreset", () => {
@@ -90,5 +90,29 @@ describe("loadPreset", () => {
       writeFileSync(join(tempDir, ".prompt-enhancer.json"), JSON.stringify({ target_model: targetModel }));
       expect(loadPreset(tempDir)).toEqual({ target_model: targetModel });
     }
+  });
+
+  it("loads a glossary map, dropping non-string values", () => {
+    tempDir = mkdtempSync(join(tmpdir(), "preset-test-"));
+    writeFileSync(
+      join(tempDir, ".prompt-enhancer.json"),
+      JSON.stringify({ glossary: { MCP: "Model Context Protocol", BAD: 42 } })
+    );
+
+    expect(loadPreset(tempDir).glossary).toEqual({ MCP: "Model Context Protocol" });
+  });
+
+  it("ignores a non-object glossary", () => {
+    tempDir = mkdtempSync(join(tmpdir(), "preset-test-"));
+    writeFileSync(join(tempDir, ".prompt-enhancer.json"), JSON.stringify({ glossary: "nope" }));
+
+    expect(loadPreset(tempDir).glossary).toBeUndefined();
+  });
+});
+
+describe("formatGlossary", () => {
+  it("formatGlossary renders one term per line", () => {
+    expect(formatGlossary({ MCP: "Model Context Protocol" }))
+      .toBe("Glossary (authoritative term meanings):\nMCP = Model Context Protocol");
   });
 });

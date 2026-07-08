@@ -12,6 +12,7 @@ export type Preset = {
   show_stats?: boolean;
   show_diff?: boolean;
   auto_intent?: boolean;
+  glossary?: Record<string, string>;
 };
 
 const VALID_TARGET_MODELS: TargetModel[] = ["generic", "claude", "gpt4o", "gemini"];
@@ -80,5 +81,16 @@ export function loadPreset(startDir: string = process.cwd()): Preset {
     preset.auto_intent = obj.auto_intent;
   }
 
+  if (typeof obj.glossary === "object" && obj.glossary !== null && !Array.isArray(obj.glossary)) {
+    const entries = Object.entries(obj.glossary as Record<string, unknown>)
+      .filter((e): e is [string, string] => typeof e[1] === "string");
+    if (entries.length > 0) preset.glossary = Object.fromEntries(entries);
+  }
+
   return preset;
+}
+
+export function formatGlossary(glossary: Record<string, string>): string {
+  const lines = Object.entries(glossary).map(([term, meaning]) => `${term} = ${meaning}`);
+  return `Glossary (authoritative term meanings):\n${lines.join("\n")}`;
 }
