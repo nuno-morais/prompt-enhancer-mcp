@@ -29,7 +29,8 @@ describe("prompt injection resistance", () => {
       target_model: "generic",
       brainstorm: false,
       explain: false,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     const firstCallBody = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -49,7 +50,8 @@ describe("prompt injection resistance", () => {
       target_model: "generic",
       brainstorm: false,
       explain: false,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     const secondCallBody = JSON.parse(fetchMock.mock.calls[1][1].body);
@@ -75,7 +77,8 @@ describe("prompt injection resistance", () => {
       target_model: "generic",
       brainstorm: false,
       explain: false,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     const firstCallBody = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -98,7 +101,8 @@ describe("prompt injection resistance", () => {
       target_model: "generic",
       brainstorm: false,
       explain: false,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     const firstCallBody = JSON.parse(fetchMock.mock.calls[0][1].body);
