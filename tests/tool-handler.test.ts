@@ -3,6 +3,9 @@ import { handleOptimizePrompt } from "../src/tool-handler.js";
 import * as refineModule from "../src/refine.js";
 import * as cacheModule from "../src/cache.js";
 import * as presetModule from "../src/preset.js";
+import { scanProject } from "../src/context-scanner.js";
+
+vi.mock("../src/context-scanner.js");
 
 describe("handleOptimizePrompt", () => {
   beforeEach(() => {
@@ -308,6 +311,40 @@ describe("handleOptimizePrompt", () => {
 
     expect(first.content[0].text).toBe("v1");
     expect(second.content[0].text).toBe("v2"); // would be "v1" if cached
+  });
+
+  it("appends auto context when auto_context is true", async () => {
+    vi.mocked(scanProject).mockResolvedValue("Auto Context Details");
+    const generateSpy = vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "optimized text"
+    });
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+
+    await handleOptimizePrompt({ draft: "test", auto_context: true, interactive: false });
+    
+    expect(generateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: "Auto Context Details"
+      })
+    );
+  });
+  
+  it("appends auto context to existing context when auto_context is true", async () => {
+    vi.mocked(scanProject).mockResolvedValue("Auto Context Details");
+    const generateSpy = vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "optimized text"
+    });
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+
+    await handleOptimizePrompt({ draft: "test", context: "Base Context", auto_context: true, interactive: false });
+    
+    expect(generateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: "Base Context\n\nAuto Context Details"
+      })
+    );
   });
 });
 

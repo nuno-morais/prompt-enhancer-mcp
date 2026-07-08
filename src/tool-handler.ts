@@ -2,6 +2,7 @@ import { DEFAULT_MODEL, DEFAULT_ENGINE, type TargetModel } from "./config.js";
 import { generateOptimizedPrompt, type ProgressCallback } from "./refine.js";
 import { getCacheKey, getCached, setCached, type CachedResult } from "./cache.js";
 import { loadPreset } from "./preset.js";
+import { scanProject } from "./context-scanner.js";
 
 export const OPTIMIZE_PROMPT_TOOL = {
   name: "optimize_prompt",
@@ -10,6 +11,11 @@ export const OPTIMIZE_PROMPT_TOOL = {
     type: "object",
     properties: {
       draft: { type: "string", description: "The raw draft idea" },
+      auto_context: {
+        type: "boolean",
+        default: false,
+        description: "Automatically scan the local project (package.json, git) for context to append to the prompt."
+      },
       context: {
         type: "string",
         description: "Optional background/domain context (project description, glossary, relevant facts) to help the model correctly interpret domain-specific terms in the draft"
@@ -80,6 +86,7 @@ export async function handleOptimizePrompt(
   args: {
     draft: unknown;
     context?: string;
+    auto_context?: boolean;
     target_model?: TargetModel;
     brainstorm?: boolean;
     explain?: boolean;
@@ -107,9 +114,17 @@ export async function handleOptimizePrompt(
 
   const glossary = preset.glossary;
 
+  let finalContext = args.context;
+  if (args.auto_context) {
+    const autoContext = await scanProject(process.cwd());
+    if (autoContext) {
+      finalContext = finalContext ? `${finalContext}\n\n${autoContext}` : autoContext;
+    }
+  }
+
   const params = {
     draft: args.draft,
-    context: args.context,
+    context: finalContext,
     glossary,
     target_model: args.target_model ?? preset.target_model ?? "generic" as TargetModel,
     brainstorm: args.brainstorm ?? preset.brainstorm,
