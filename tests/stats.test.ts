@@ -32,9 +32,9 @@ describe("stats", () => {
     };
 
     const formatted = formatStatsString(stats);
-    expect(formatted).toContain("Tokens (Antes):** 10");
-    expect(formatted).toContain("Tokens (Depois):** 50");
-    expect(formatted).toContain("Expansão de Contexto:** 5.0x");
-    expect(formatted).toContain("Custo Adicional de Input:** ~40 tokens");
+    expect(formatted).toContain("Tokens (Before):** 10");
+    expect(formatted).toContain("Tokens (After):** 50");
+    expect(formatted).toContain("Context Expansion:** 5.0x");
+    expect(formatted).toContain("Additional Input Cost:** ~40 tokens");
   });
 });

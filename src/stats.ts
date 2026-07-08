@@ -27,8 +27,8 @@ export function calculateStats(originalDraft: string, optimizedPrompt: string): 
 
 export function formatStatsString(stats: PromptStats): string {
   return `📊 **Prompt Stats & Efficiency:**
-- **Tokens (Antes):** ${stats.originalTokens}
-- **Tokens (Depois):** ${stats.optimizedTokens}
-- **Expansão de Contexto:** ${stats.expansionMultiplier}x (Um prompt mais denso poupa ciclos de raciocínio da IA)
-- **Custo Adicional de Input:** ~${stats.tokenDifference} tokens (irrelevante face à poupança no output correto da API paga).`;
+- **Tokens (Before):** ${stats.originalTokens}
+- **Tokens (After):** ${stats.optimizedTokens}
+- **Context Expansion:** ${stats.expansionMultiplier}x (A denser prompt saves the paid API's reasoning cycles)
+- **Additional Input Cost:** ~${stats.tokenDifference} tokens (negligible compared to the savings from a correct output on the paid API).`;
 }
