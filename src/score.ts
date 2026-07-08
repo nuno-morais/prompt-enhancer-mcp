@@ -62,16 +62,16 @@ export function verdict(promptOverall: number, baselineOverall: number): "prompt
   return promptOverall > baselineOverall ? "prompt" : "baseline";
 }
 
-function overallOf(side: Record<Dimension, DimScore>): number {
+export function overallOf(side: Record<Dimension, DimScore>): number {
   return computeOverall(Object.fromEntries(DIMENSIONS.map(d => [d, side[d].score])));
 }
 
-function renderSingle(scores: JudgeScores): string {
+export function renderSingle(scores: JudgeScores): string {
   const rows = DIMENSIONS.map(d => `| ${d} | ${scores.prompt[d].score} | ${scores.prompt[d].why} |`).join("\n");
   return `| Dimension | Score | Why |\n|---|---|---|\n${rows}\n\n**Overall: ${overallOf(scores.prompt)} / 5**`;
 }
 
-function renderComparison(scores: JudgeScores): string {
+export function renderComparison(scores: JudgeScores): string {
   const b = scores.baseline!;
   const rows = DIMENSIONS.map(d => {
     const delta = scores.prompt[d].score - b[d].score;

@@ -189,6 +189,60 @@ STRICT RULES:
 </prompt_to_score>
 `;
 
+const GENERATE_SYSTEM_PROMPT_RULES = `
+STRICT RULES:
+1. Output ONLY the generated system prompt in a \`\`\`text code block. Nothing else.
+2. No text before/after the block.
+3. The system prompt must define: the role, its scope/boundaries, and an explicit output format expectation.
+4. Never invent facts about the role beyond what <role>, <failure_modes>, and <transcript> state.
+5. Never write: "Here is", "Sure", "I hope this helps", "Here's the prompt", "As requested".
+`;
+
+const FAILURE_MODES_BLOCK = `
+If <failure_modes> is non-empty, add one explicit guardrail per listed failure mode,
+addressing exactly that failure (not generic guardrails).
+`;
+
+const TRANSCRIPT_BLOCK = `
+If <transcript> is present, diagnose what went wrong in it and write guardrails that
+directly prevent that failure from recurring, in addition to the role definition.
+`;
+
+const GENERATE_SYSTEM_PROMPT_TERSE = `
+You are a specialized Prompt Engineer. Write a concise, minimal system prompt for
+the role described in <role>. Keep it to the essentials: role definition, core
+constraints, output format. Avoid verbosity.
+${GENERATE_SYSTEM_PROMPT_RULES}
+${FAILURE_MODES_BLOCK}
+${TRANSCRIPT_BLOCK}
+
+<role>{{role}}</role>
+<failure_modes>{{failure_modes}}</failure_modes>
+<transcript>{{transcript}}</transcript>
+`;
+
+const GENERATE_SYSTEM_PROMPT_GUARDRAILED = `
+You are a specialized Prompt Engineer. Write a thorough system prompt for the role
+described in <role>. Include: role definition, explicit scope/boundaries (what it
+should and should not do), negative constraints/guardrails, and an explicit output
+format expectation.
+${GENERATE_SYSTEM_PROMPT_RULES}
+${FAILURE_MODES_BLOCK}
+${TRANSCRIPT_BLOCK}
+
+<role>{{role}}</role>
+<failure_modes>{{failure_modes}}</failure_modes>
+<transcript>{{transcript}}</transcript>
+`;
+
+export function getGenerateSystemPromptMeta(rigor: "terse" | "guardrailed", role: string, failureModes: string, transcript: string): string {
+  const template = rigor === "terse" ? GENERATE_SYSTEM_PROMPT_TERSE : GENERATE_SYSTEM_PROMPT_GUARDRAILED;
+  return template
+    .split("{{role}}").join(role)
+    .split("{{failure_modes}}").join(failureModes || "(none provided)")
+    .split("{{transcript}}").join(transcript || "(none provided)");
+}
+
 export const COMPARE_SYSTEM_PROMPT = `
 You are a strict prompt-quality judge. Score BOTH prompts below on five
 dimensions, each an integer 1-5: clarity, specificity, structure,

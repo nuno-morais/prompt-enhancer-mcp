@@ -6,6 +6,7 @@ import { OPTIMIZE_PROMPT_TOOL, handleOptimizePrompt } from "./tool-handler.js";
 import { CHECK_HEALTH_TOOL, handleCheckHealth } from "./health.js";
 import { LINT_PROMPT_TOOL, handleLintPrompt } from "./lint-tool.js";
 import { SCORE_PROMPT_TOOL, handleScorePrompt } from "./score.js";
+import { GENERATE_SYSTEM_PROMPT_TOOL, handleGenerateSystemPrompt } from "./generate-system-prompt.js";
 import { type TargetModel } from "./config.js";
 import { registerSamplingServer } from "./sampling-client.js";
 
@@ -17,7 +18,7 @@ const server = new Server(
 registerSamplingServer(server);
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [OPTIMIZE_PROMPT_TOOL, CHECK_HEALTH_TOOL, LINT_PROMPT_TOOL, SCORE_PROMPT_TOOL]
+  tools: [OPTIMIZE_PROMPT_TOOL, CHECK_HEALTH_TOOL, LINT_PROMPT_TOOL, SCORE_PROMPT_TOOL, GENERATE_SYSTEM_PROMPT_TOOL]
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
@@ -32,6 +33,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   if (request.params.name === "score_prompt") {
     return await handleScorePrompt(request.params.arguments as {
       prompt: unknown; baseline?: string; engine?: string; model?: string;
+    });
+  }
+
+  if (request.params.name === "generate_system_prompt") {
+    return await handleGenerateSystemPrompt(request.params.arguments as {
+      role: unknown; failure_modes?: string[]; transcript?: string;
+      rigor?: string; format?: string; engine?: string; model?: string;
     });
   }
 
