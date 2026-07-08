@@ -154,6 +154,7 @@ The server exposes one tool, `optimize_prompt`:
   "session_id": "my-iteration-1",
   "auto_cot": true,
   "auto_guardrails": true,
+  "auto_intent": true,
   "show_stats": true,
   "engine": "ollama",
   "model": "llama3.1:8b"
@@ -198,6 +199,7 @@ Set the port with the `MCP_HTTP_PORT` environment variable (default `3000`). The
 | `explain` | boolean | `false` | When true, the response includes a 2nd text block: a 1-line summary of what the critic pass changed. |
 | `auto_cot` | boolean | `true` | Automatically injects a `<thinking>` block tailored to the `target_model` for complex requests, improving reasoning. |
 | `auto_guardrails` | boolean | `true` | Automatically detects potential hallucination risks and injects a strict `<negative_constraints>` block (`DO NOT...`). |
+| `auto_intent` | boolean | `true` | Classifies the draft's intent and injects a matching instruction line ("search the web…", "ask the user for {{artifact}}…"). When `brainstorm` is not set, an ideation draft auto-enables brainstorm mode. |
 | `show_stats` | boolean | `false` | Returns an additional text block detailing token expansion and efficiency metrics. |
 | `interactive` | boolean | `true` | When true, instructs the MCP client NOT to answer the optimized prompt immediately, but instead present it to the user for approval. |
 | `engine` | `"ollama"` \| `"anthropic"` | `"ollama"` | Choose the backend engine. If using `anthropic`, you must set the `ANTHROPIC_API_KEY` environment variable. |
@@ -252,6 +254,14 @@ mcp --draft "quick note" --ollama-url https://your-ollama-host.example.com \
 - **Response cache:** identical requests (same `draft` + `target_model` +
   `brainstorm` + `explain` + `model`) are cached in memory for 1 hour
   (100-entry LRU). A cache hit returns instantly with zero Ollama calls.
+- **Intent classification:** unless `auto_intent: false`, a small parallel
+  classification pass tags each draft as needing web search, a user-provided
+  artifact, brainstorming, or nothing. Web-search/artifact intents add one
+  instruction line to the optimized prompt; an ideation draft auto-enables
+  brainstorm mode when you didn't set `brainstorm` yourself. Explicit
+  `brainstorm` (argument or preset) always wins. Wrong classifications are
+  harmless: the line is advisory prose, and any failure falls back to
+  injecting nothing. Session (`session_id`) refinement calls never re-classify.
 - **Project presets:** drop a `.prompt-enhancer.json` file anywhere in your
   project (the server searches upward from its working directory to find
   it, like `.eslintrc`) to set project-wide defaults.
