@@ -5,23 +5,48 @@ import { loadPreset } from '../preset.js';
 import { readFileSync } from 'node:fs';
 import { mergeOllamaHeaderFlags, collectHeader } from './ollama-flags.js';
 
-const program = new commander.Command();
-program
-  .name('mcp')
-  .description('Optimize a prompt draft using the local MCP')
-  .option('-d, --draft <draft>', 'Prompt draft string (if omitted, reads from stdin)')
-  .option('-b, --brainstorm', 'Enable brainstorming mode')
-  .option('-e, --explain', 'Include a one‑line explanation of changes')
-  .option('-t, --target <model>', 'Target model (generic, claude, gpt4o, gemini)')
-  .option('-m, --model <ollama>', 'Override Ollama model name')
-  .option('-u, --ollama-url <url>', 'Override Ollama base URL (e.g. https://your-ollama-host.example.com)')
-  .option('-H, --ollama-header <key=value>', 'Extra header to send to Ollama (repeatable)', collectHeader, {})
-  .option('-s, --session <id>', 'Session ID to maintain conversation state across calls')
-  .option('--no-cot', 'Disable automatic Chain-of-Thought injection')
-  .option('--no-guardrails', 'Disable automatic negative-constraint (guardrail) injection')
-  .option('--stats', 'Include token count and efficiency stats in the output')
-  .option('--engine <engine>', 'LLM engine to use (ollama or anthropic)')
-  .parse(process.argv);
+export function buildProgram(): commander.Command {
+  const program = new commander.Command();
+  program
+    .name('mcp')
+    .description('Optimize a prompt draft using the local MCP')
+    .option('-d, --draft <draft>', 'Prompt draft string (if omitted, reads from stdin)')
+    .option('-b, --brainstorm', 'Enable brainstorming mode')
+    .option('-e, --explain', 'Include a one‑line explanation of changes')
+    .option('-t, --target <model>', 'Target model (generic, claude, gpt4o, gemini)')
+    .option('-m, --model <ollama>', 'Override Ollama model name')
+    .option('-u, --ollama-url <url>', 'Override Ollama base URL (e.g. https://your-ollama-host.example.com)')
+    .option('-H, --ollama-header <key=value>', 'Extra header to send to Ollama (repeatable)', collectHeader, {})
+    .option('-s, --session <id>', 'Session ID to maintain conversation state across calls')
+    .option('--no-cot', 'Disable automatic Chain-of-Thought injection')
+    .option('--no-guardrails', 'Disable automatic negative-constraint (guardrail) injection')
+    .option('--no-auto-intent', 'Disable automatic intent classification (web-search/artifact hints and auto-brainstorm)')
+    .option('--stats', 'Include token count and efficiency stats in the output')
+    .option('--engine <engine>', 'LLM engine to use (ollama or anthropic)');
+  return program;
+}
+
+export function parseOpts(argv: string[]): any {
+  const program = buildProgram();
+  program.parse(argv);
+  return program.opts();
+}
+
+export function buildArgs(opts: any, draft: string) {
+  return {
+    draft,
+    brainstorm: opts.brainstorm ? true : undefined,
+    explain: !!opts.explain,
+    target_model: opts.target,
+    model: opts.model,
+    session_id: opts.session,
+    auto_cot: opts.cot,
+    auto_guardrails: opts.guardrails,
+    auto_intent: opts.autoIntent,
+    show_stats: !!opts.stats,
+    engine: opts.engine,
+  };
+}
 
 async function getStdin(): Promise<string> {
   return new Promise((resolve) => {
@@ -32,8 +57,8 @@ async function getStdin(): Promise<string> {
   });
 }
 
-(async () => {
-  const opts = program.opts();
+export async function main(argv: string[]): Promise<void> {
+  const opts = parseOpts(argv);
 
   if (opts.ollamaUrl) {
     process.env.OLLAMA_BASE_URL = opts.ollamaUrl;
@@ -50,18 +75,7 @@ async function getStdin(): Promise<string> {
     console.error('Error: No draft provided. Use --draft or pipe input.');
     process.exit(1);
   }
-  const args = {
-    draft,
-    brainstorm: !!opts.brainstorm,
-    explain: !!opts.explain,
-    target_model: opts.target,
-    model: opts.model,
-    session_id: opts.session,
-    auto_cot: opts.cot,
-    auto_guardrails: opts.guardrails,
-    show_stats: !!opts.stats,
-    engine: opts.engine,
-  };
+  const args = buildArgs(opts, draft);
   try {
     const result = await handleOptimizePrompt(args);
     // result.content is an array of text blocks
@@ -72,4 +86,9 @@ async function getStdin(): Promise<string> {
     console.error('Optimization failed:', e);
     process.exit(1);
   }
-})();
+}
+
+const isMainModule = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+if (isMainModule) {
+  main(process.argv);
+}
