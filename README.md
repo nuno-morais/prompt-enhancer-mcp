@@ -156,6 +156,7 @@ The server exposes one tool, `optimize_prompt`:
   "auto_guardrails": true,
   "auto_intent": true,
   "show_stats": true,
+  "show_diff": false,
   "engine": "ollama",
   "model": "llama3.1:8b"
 }
@@ -279,6 +280,10 @@ mcp --draft "quick note" --ollama-url https://your-ollama-host.example.com \
   { "engine": "anthropic", "model": "claude-3-5-sonnet-latest", "target_model": "claude", "explain": true, "show_stats": true }
   ```
   Any parameter can be set this way. An explicit argument in a tool call always overrides the preset.
+- **Diff view:** `show_diff: true` appends a line diff showing exactly what
+  the self-critique pass changed between the first draft and the final
+  prompt. Computed locally — no extra LLM calls. For trivial drafts (critic
+  skipped) it reports that no diff is available.
 - **Background Processes (Zero-Cost Latency):** `auto_cot` and `auto_guardrails` are executed asynchronously in parallel with the first draft generation, causing **zero extra wait time**.
 - **Progress notifications:** if your MCP client attaches a `progressToken`
   to its `tools/call` request, the server sends `notifications/progress`
