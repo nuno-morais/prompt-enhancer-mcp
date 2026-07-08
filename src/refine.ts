@@ -125,10 +125,9 @@ async function lintAndRepair(
   params: { draft: string; context?: string; engine: LLMEngine; model: string;
             auto_repair?: boolean; glossary?: Record<string, string> },
   expectedPlaceholder: string | undefined,
-  llmOptions: Record<string, unknown>
+  llmOptions: Record<string, unknown>,
+  lintContext: string | undefined
 ): Promise<{ finalPrompt: string; lintWarnings: LintWarning[]; repairedCount: number }> {
-  const lintContext = [params.context, params.glossary ? formatGlossary(params.glossary) : undefined]
-    .filter(Boolean).join("\n\n") || undefined;
   const warnings = lintOptimizedPrompt(params.draft, lintContext, finalPrompt, expectedPlaceholder, params.glossary);
   const repairable = warnings.filter(w => w.repairable);
   if (params.auto_repair === false || repairable.length === 0) {
@@ -158,7 +157,9 @@ async function lintAndRepair(
     });
     const repaired = extractCodeBlock(response.message.content);
     const remaining = lintOptimizedPrompt(params.draft, lintContext, repaired, expectedPlaceholder, params.glossary);
-    return { finalPrompt: repaired, lintWarnings: remaining, repairedCount: repairable.length };
+    const remainingRepairableCount = remaining.filter(w => w.repairable).length;
+    const repairedCount = Math.max(0, repairable.length - remainingRepairableCount);
+    return { finalPrompt: repaired, lintWarnings: remaining, repairedCount };
   } catch (error) {
     console.error("Repair pass failed, keeping pre-repair prompt:", error);
     return { finalPrompt, lintWarnings: warnings, repairedCount: 0 };
@@ -329,7 +330,7 @@ export async function generateOptimizedPrompt(
     const expectedPlaceholder = intentResult?.intent === "user_artifact"
       ? `{{${intentResult.artifactName ?? "artifact"}}}`
       : undefined;
-    const repairOutcome = await lintAndRepair(finalPrompt, params, expectedPlaceholder, ollamaParams);
+    const repairOutcome = await lintAndRepair(finalPrompt, params, expectedPlaceholder, ollamaParams, effectiveContext);
     finalPrompt = repairOutcome.finalPrompt;
 
     if (params.session_id) {
@@ -388,7 +389,7 @@ export async function generateOptimizedPrompt(
   const expectedPlaceholder = intentResult?.intent === "user_artifact"
     ? `{{${intentResult.artifactName ?? "artifact"}}}`
     : undefined;
-  const repairOutcome = await lintAndRepair(finalPrompt, params, expectedPlaceholder, ollamaParams);
+  const repairOutcome = await lintAndRepair(finalPrompt, params, expectedPlaceholder, ollamaParams, effectiveContext);
   finalPrompt = repairOutcome.finalPrompt;
 
   const diff = params.show_diff ? diffLines(firstDraftPrompt, finalPrompt) : undefined;

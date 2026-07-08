@@ -439,6 +439,32 @@ describe("auto-repair", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it("reports repairedCount 0 when the repair call fails to actually fix the issue", async () => {
+    const fetchMock = mockThreeCalls(
+      "```text\nFirst draft prompt\n```",
+      "```text\nReview the MCP (Multi-Criteria Problem) server.\n```",
+      "```text\nReview the MCP (Multi-Criteria Problem) server.\n```"
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateOptimizedPrompt({
+      draft: REPAIR_DRAFT,
+      target_model: "generic",
+      brainstorm: false,
+      explain: false,
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: false,
+      glossary: { MCP: "Model Context Protocol" },
+      auto_repair: true
+    });
+
+    expect(result.repairedCount).toBe(0);
+    expect(result.lintWarnings?.length).toBeGreaterThan(0);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("does not repair unrepairable warnings and surfaces them", async () => {
     const fetchMock = mockFirstAndSecondCalls(
       "```text\nFirst draft prompt\n```",

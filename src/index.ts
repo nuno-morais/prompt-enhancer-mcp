@@ -31,7 +31,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
 
   if (request.params.name === "score_prompt") {
     return await handleScorePrompt(request.params.arguments as {
-      prompt: unknown; baseline?: string; target_model?: TargetModel; engine?: string; model?: string;
+      prompt: unknown; baseline?: string; engine?: string; model?: string;
     });
   }
 

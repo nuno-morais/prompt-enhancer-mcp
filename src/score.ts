@@ -1,7 +1,7 @@
 import { generateChat, type LLMEngine } from "./llm.js";
 import { extractCodeBlock } from "./extract-code-block.js";
 import { loadPreset } from "./preset.js";
-import { DEFAULT_MODEL, DEFAULT_ENGINE, type TargetModel } from "./config.js";
+import { DEFAULT_MODEL, DEFAULT_ENGINE } from "./config.js";
 import { SCORE_SYSTEM_PROMPT, COMPARE_SYSTEM_PROMPT } from "./meta-prompts.js";
 
 export const DIMENSIONS = ["clarity", "specificity", "structure", "guardrails", "token_efficiency"] as const;
@@ -84,7 +84,7 @@ function renderComparison(scores: JudgeScores): string {
 }
 
 export async function handleScorePrompt(args: {
-  prompt: unknown; baseline?: string; target_model?: TargetModel; engine?: string; model?: string;
+  prompt: unknown; baseline?: string; engine?: string; model?: string;
 }): Promise<{ content: { type: "text"; text: string }[] }> {
   if (typeof args.prompt !== "string") throw new Error("score_prompt requires a string 'prompt' argument");
   const preset = loadPreset();
