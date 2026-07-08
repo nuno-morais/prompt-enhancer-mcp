@@ -59,7 +59,7 @@ export const OPTIMIZE_PROMPT_TOOL = {
         default: false,
         description: "Show a line diff of what the critic pass changed (first draft vs final prompt)."
       },
-      engine: { type: "string", description: "The underlying LLM engine to use (ollama or anthropic)" },
+      engine: { type: "string", enum: ["ollama", "anthropic", "sampling"], description: "The underlying LLM engine to use" },
       model: { type: "string", description: "Override for the model" },
       auto_intent: {
         type: "boolean",

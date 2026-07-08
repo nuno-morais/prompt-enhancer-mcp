@@ -1,7 +1,8 @@
 import { ollamaChat } from "./ollama-client.js";
 import { anthropicChat } from "./anthropic-client.js";
+import { samplingChat } from "./sampling-client.js";
 
-export type LLMEngine = "ollama" | "anthropic";
+export type LLMEngine = "ollama" | "anthropic" | "sampling";
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
@@ -23,10 +24,13 @@ export type ChatResponse = {
 };
 
 export async function generateChat(request: ChatRequest): Promise<ChatResponse> {
+  if (request.engine === "sampling") {
+    return samplingChat(request);
+  }
   if (request.engine === "anthropic") {
     return anthropicChat(request);
   }
-  
+
   // Default to Ollama
   const res = await ollamaChat({
     model: request.model,

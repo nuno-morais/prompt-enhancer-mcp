@@ -6,6 +6,7 @@ import { handleScorePrompt } from '../score.js';
 import { loadPreset } from '../preset.js';
 import { readFileSync } from 'node:fs';
 import { mergeOllamaHeaderFlags, collectHeader } from './ollama-flags.js';
+import { SAMPLING_UNSUPPORTED_MESSAGE } from '../sampling-client.js';
 
 async function getStdin(): Promise<string> {
   return new Promise((resolve) => {
@@ -34,7 +35,7 @@ export function buildProgram(): commander.Command {
     .option('--no-auto-intent', 'Disable automatic intent classification (web-search/artifact hints and auto-brainstorm)')
     .option('--no-auto-repair', 'Disable automatic repair of lint findings')
     .option('--stats', 'Include token count and efficiency stats in the output')
-    .option('--engine <engine>', 'LLM engine to use (ollama or anthropic)')
+    .option('--engine <engine>', 'LLM engine to use (ollama, anthropic or sampling — sampling only works inside an MCP client)')
     .enablePositionalOptions()
     // no-op: commander v12 requires a root action once subcommands exist
     .action(() => {});
@@ -107,6 +108,11 @@ export async function main(argv: string[]): Promise<void> {
   }
 
   const opts = parseOpts(argv);
+
+  if (opts.engine === 'sampling') {
+    console.error(SAMPLING_UNSUPPORTED_MESSAGE);
+    process.exit(1);
+  }
 
   if (opts.ollamaUrl) {
     process.env.OLLAMA_BASE_URL = opts.ollamaUrl;

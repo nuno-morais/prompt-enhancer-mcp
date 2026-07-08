@@ -1,6 +1,12 @@
 import { DEFAULT_ENGINE, DEFAULT_MODEL, getOllamaBaseUrl, getOllamaExtraHeaders } from "./config.js";
 import { loadPreset } from "./preset.js";
 import type { LLMEngine } from "./llm.js";
+import { samplingAvailable } from "./sampling-client.js";
+
+function samplingStatusLine(): string {
+  const available = samplingAvailable();
+  return `Sampling: ${available ? "available" : "not available"} (client ${available ? "advertises" : "does not advertise"} the sampling capability)`;
+}
 
 export const CHECK_HEALTH_TOOL = {
   name: "check_health",
@@ -31,7 +37,7 @@ export async function handleCheckHealth(
     const text = hasKey
       ? "✅ Anthropic engine configured (ANTHROPIC_API_KEY is set)."
       : "❌ Anthropic engine not configured: ANTHROPIC_API_KEY environment variable is not set.";
-    return { content: [{ type: "text", text }] };
+    return { content: [{ type: "text", text }, { type: "text", text: samplingStatusLine() }] };
   }
 
   const model = args.model ?? preset.model ?? DEFAULT_MODEL;
@@ -42,10 +48,10 @@ export async function handleCheckHealth(
   } catch (err) {
     if (err instanceof TypeError && err.message === "fetch failed") {
       return {
-        content: [{
-          type: "text",
-          text: `❌ Could not reach Ollama at ${getOllamaBaseUrl()}. Is Ollama running? Try 'ollama serve'.`
-        }]
+        content: [
+          { type: "text", text: `❌ Could not reach Ollama at ${getOllamaBaseUrl()}. Is Ollama running? Try 'ollama serve'.` },
+          { type: "text", text: samplingStatusLine() }
+        ]
       };
     }
     throw err;
@@ -53,10 +59,10 @@ export async function handleCheckHealth(
 
   if (!response.ok) {
     return {
-      content: [{
-        type: "text",
-        text: `❌ Ollama at ${getOllamaBaseUrl()} responded with an error: ${response.status} ${response.statusText}`
-      }]
+      content: [
+        { type: "text", text: `❌ Ollama at ${getOllamaBaseUrl()} responded with an error: ${response.status} ${response.statusText}` },
+        { type: "text", text: samplingStatusLine() }
+      ]
     };
   }
 
@@ -69,17 +75,17 @@ export async function handleCheckHealth(
 
   if (!modelAvailable) {
     return {
-      content: [{
-        type: "text",
-        text: `⚠️ Ollama is reachable at ${getOllamaBaseUrl()}, but model '${model}' is not pulled. Run: ollama pull ${model}`
-      }]
+      content: [
+        { type: "text", text: `⚠️ Ollama is reachable at ${getOllamaBaseUrl()}, but model '${model}' is not pulled. Run: ollama pull ${model}` },
+        { type: "text", text: samplingStatusLine() }
+      ]
     };
   }
 
   return {
-    content: [{
-      type: "text",
-      text: `✅ Ollama reachable at ${getOllamaBaseUrl()}, model '${model}' available.`
-    }]
+    content: [
+      { type: "text", text: `✅ Ollama reachable at ${getOllamaBaseUrl()}, model '${model}' available.` },
+      { type: "text", text: samplingStatusLine() }
+    ]
   };
 }

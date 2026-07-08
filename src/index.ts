@@ -7,11 +7,14 @@ import { CHECK_HEALTH_TOOL, handleCheckHealth } from "./health.js";
 import { LINT_PROMPT_TOOL, handleLintPrompt } from "./lint-tool.js";
 import { SCORE_PROMPT_TOOL, handleScorePrompt } from "./score.js";
 import { type TargetModel } from "./config.js";
+import { registerSamplingServer } from "./sampling-client.js";
 
 const server = new Server(
   { name: "prompt-enhancer-mcp", version: "0.1.0" },
   { capabilities: { tools: {} } }
 );
+
+registerSamplingServer(server);
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [OPTIMIZE_PROMPT_TOOL, CHECK_HEALTH_TOOL, LINT_PROMPT_TOOL, SCORE_PROMPT_TOOL]

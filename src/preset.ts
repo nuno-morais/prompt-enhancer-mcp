@@ -17,7 +17,7 @@ export type Preset = {
 };
 
 const VALID_TARGET_MODELS: TargetModel[] = ["generic", "claude", "gpt4o", "gemini"];
-const VALID_ENGINES: LLMEngine[] = ["ollama", "anthropic"];
+const VALID_ENGINES: LLMEngine[] = ["ollama", "anthropic", "sampling"];
 
 function findPresetPath(startDir: string): string | undefined {
   let currentDir = startDir;
