@@ -66,6 +66,27 @@ function isTrivialDraft(draft: string, targetModel: TargetModel, brainstorm: boo
   return targetModel === "generic" && brainstorm === false && wordCount <= 15;
 }
 
+async function applyIntentLine(
+  finalPrompt: string,
+  intentPromise: Promise<IntentResult> | undefined,
+  intentResult: IntentResult | undefined,
+  autoEnabledBrainstorm: boolean,
+  targetModel: TargetModel
+): Promise<{ finalPrompt: string; intentResult?: IntentResult; intentNote?: string }> {
+  if (intentPromise) {
+    intentResult = await intentPromise;
+  }
+  const intentLine = intentResult ? buildIntentLine(intentResult) : null;
+  if (intentLine) {
+    finalPrompt = injectIntentLine(finalPrompt, intentLine, targetModel);
+  }
+  const intentNote = autoEnabledBrainstorm
+    ? "Detected ideation draft; enabled brainstorm mode."
+    : (intentLine ? `Detected intent: ${intentResult!.intent}; added a capability instruction.` : undefined);
+
+  return { finalPrompt, intentResult, intentNote };
+}
+
 export async function generateOptimizedPrompt(
   params: {
     draft: string;
@@ -212,16 +233,8 @@ export async function generateOptimizedPrompt(
       finalPrompt = injectGuardrails(finalPrompt, constraints);
     }
 
-    if (intentPromise) {
-      intentResult = await intentPromise;
-    }
-    const intentLine = intentResult ? buildIntentLine(intentResult) : null;
-    if (intentLine) {
-      finalPrompt = injectIntentLine(finalPrompt, intentLine, params.target_model);
-    }
-    const intentNote = autoEnabledBrainstorm
-      ? "Detected ideation draft; enabled brainstorm mode."
-      : (intentLine ? `Detected intent: ${intentResult!.intent}; added a capability instruction.` : undefined);
+    let intentNote: string | undefined;
+    ({ finalPrompt, intentResult, intentNote } = await applyIntentLine(finalPrompt, intentPromise, intentResult, autoEnabledBrainstorm, params.target_model));
 
     if (params.session_id) {
       messages.push({
@@ -270,16 +283,8 @@ export async function generateOptimizedPrompt(
     finalPrompt = injectGuardrails(finalPrompt, constraints);
   }
 
-  if (intentPromise) {
-    intentResult = await intentPromise;
-  }
-  const intentLine = intentResult ? buildIntentLine(intentResult) : null;
-  if (intentLine) {
-    finalPrompt = injectIntentLine(finalPrompt, intentLine, params.target_model);
-  }
-  const intentNote = autoEnabledBrainstorm
-    ? "Detected ideation draft; enabled brainstorm mode."
-    : (intentLine ? `Detected intent: ${intentResult!.intent}; added a capability instruction.` : undefined);
+  let intentNote: string | undefined;
+  ({ finalPrompt, intentResult, intentNote } = await applyIntentLine(finalPrompt, intentPromise, intentResult, autoEnabledBrainstorm, params.target_model));
 
   if (params.session_id) {
     messages.push({
