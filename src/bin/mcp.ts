@@ -2,6 +2,7 @@
 import * as commander from 'commander';
 import { handleOptimizePrompt } from '../tool-handler.js';
 import { handleLintPrompt } from '../lint-tool.js';
+import { handleScorePrompt } from '../score.js';
 import { loadPreset } from '../preset.js';
 import { readFileSync } from 'node:fs';
 import { mergeOllamaHeaderFlags, collectHeader } from './ollama-flags.js';
@@ -55,6 +56,22 @@ export function buildProgram(): commander.Command {
       process.exit(res.content[0].text.startsWith('No lint issues') ? 0 : 1);
     });
 
+  program
+    .command('score')
+    .description('Judge-grade a prompt (1-5 on five dimensions); --baseline compares two prompts')
+    .argument('[prompt]', 'Prompt to score (if omitted, reads from stdin)')
+    .option('--baseline <prompt>', 'Second prompt for comparison mode')
+    .option('--engine <engine>', 'LLM engine (ollama or anthropic)')
+    .option('-m, --model <model>', 'Override judge model')
+    .action(async (promptArg: string | undefined, cmdOpts: any) => {
+      const prompt = promptArg ?? (await getStdin());
+      if (!prompt) { console.error('Error: No prompt provided.'); process.exit(1); }
+      try {
+        const res = await handleScorePrompt({ prompt, baseline: cmdOpts.baseline, engine: cmdOpts.engine, model: cmdOpts.model });
+        console.log(res.content[0].text);
+      } catch (e) { console.error('Scoring failed:', e); process.exit(1); }
+    });
+
   return program;
 }
 
@@ -82,6 +99,13 @@ export function buildArgs(opts: any, draft: string) {
 }
 
 export async function main(argv: string[]): Promise<void> {
+  const program = buildProgram();
+  const subcommandNames = program.commands.map((c) => c.name());
+  if (argv[2] && subcommandNames.includes(argv[2])) {
+    await program.parseAsync(argv);
+    return;
+  }
+
   const opts = parseOpts(argv);
 
   if (opts.ollamaUrl) {

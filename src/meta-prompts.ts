@@ -173,3 +173,37 @@ export function getMetaPromptConfig(targetModel: TargetModel, brainstorm: boolea
 
   return { systemPrompt, params: getOllamaParams(targetModel) };
 }
+
+export const SCORE_SYSTEM_PROMPT = `
+You are a strict prompt-quality judge. Score the prompt below on five
+dimensions, each an integer 1-5 (1 = very poor, 5 = excellent):
+clarity, specificity, structure, guardrails, token_efficiency.
+
+STRICT RULES:
+1. Respond ONLY with a JSON object inside a \`\`\`json code block.
+2. Shape: {"prompt": {"<dimension>": {"score": <1-5>, "why": "<one short sentence>"}}}
+   with ALL five dimensions present. No other keys, no commentary.
+
+<prompt_to_score>
+{{prompt}}
+</prompt_to_score>
+`;
+
+export const COMPARE_SYSTEM_PROMPT = `
+You are a strict prompt-quality judge. Score BOTH prompts below on five
+dimensions, each an integer 1-5: clarity, specificity, structure,
+guardrails, token_efficiency. Judge each on its own merits.
+
+STRICT RULES:
+1. Respond ONLY with a JSON object inside a \`\`\`json code block.
+2. Shape: {"baseline": {...five dimensions...}, "prompt": {...five dimensions...}}
+   where each dimension is {"score": <1-5>, "why": "<one short sentence>"}.
+
+<baseline_prompt>
+{{baseline}}
+</baseline_prompt>
+
+<prompt_to_score>
+{{prompt}}
+</prompt_to_score>
+`;

@@ -5,6 +5,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { OPTIMIZE_PROMPT_TOOL, handleOptimizePrompt } from "./tool-handler.js";
 import { CHECK_HEALTH_TOOL, handleCheckHealth } from "./health.js";
 import { LINT_PROMPT_TOOL, handleLintPrompt } from "./lint-tool.js";
+import { SCORE_PROMPT_TOOL, handleScorePrompt } from "./score.js";
 import { type TargetModel } from "./config.js";
 
 const server = new Server(
@@ -13,7 +14,7 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [OPTIMIZE_PROMPT_TOOL, CHECK_HEALTH_TOOL, LINT_PROMPT_TOOL]
+  tools: [OPTIMIZE_PROMPT_TOOL, CHECK_HEALTH_TOOL, LINT_PROMPT_TOOL, SCORE_PROMPT_TOOL]
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
@@ -23,6 +24,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
 
   if (request.params.name === "lint_prompt") {
     return handleLintPrompt(request.params.arguments as { prompt: unknown; draft?: string; context?: string });
+  }
+
+  if (request.params.name === "score_prompt") {
+    return await handleScorePrompt(request.params.arguments as {
+      prompt: unknown; baseline?: string; target_model?: TargetModel; engine?: string; model?: string;
+    });
   }
 
   if (request.params.name !== "optimize_prompt") {
