@@ -1,9 +1,19 @@
 #!/usr/bin/env node
 import * as commander from 'commander';
 import { handleOptimizePrompt } from '../tool-handler.js';
+import { handleLintPrompt } from '../lint-tool.js';
 import { loadPreset } from '../preset.js';
 import { readFileSync } from 'node:fs';
 import { mergeOllamaHeaderFlags, collectHeader } from './ollama-flags.js';
+
+async function getStdin(): Promise<string> {
+  return new Promise((resolve) => {
+    let data = '';
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', chunk => (data += chunk));
+    process.stdin.on('end', () => resolve(data.trim()));
+  });
+}
 
 export function buildProgram(): commander.Command {
   const program = new commander.Command();
@@ -22,7 +32,27 @@ export function buildProgram(): commander.Command {
     .option('--no-guardrails', 'Disable automatic negative-constraint (guardrail) injection')
     .option('--no-auto-intent', 'Disable automatic intent classification (web-search/artifact hints and auto-brainstorm)')
     .option('--stats', 'Include token count and efficiency stats in the output')
-    .option('--engine <engine>', 'LLM engine to use (ollama or anthropic)');
+    .option('--engine <engine>', 'LLM engine to use (ollama or anthropic)')
+    .enablePositionalOptions()
+    .action(() => {});
+
+  program
+    .command('lint')
+    .description('Lint a prompt for common issues (no LLM call)')
+    .argument('[prompt]', 'Prompt text (if omitted, reads from stdin)')
+    .option('--draft <draft>', 'Original draft, enables draft-comparison rules')
+    .option('--context <context>', 'Background context the prompt was built from')
+    .action(async (promptArg: string | undefined, cmdOpts: any) => {
+      const prompt = promptArg ?? (await getStdin());
+      if (!prompt) {
+        console.error('Error: No prompt provided.');
+        process.exit(1);
+      }
+      const res = handleLintPrompt({ prompt, draft: cmdOpts.draft, context: cmdOpts.context });
+      console.log(res.content[0].text);
+      process.exit(res.content[0].text.startsWith('No lint issues') ? 0 : 1);
+    });
+
   return program;
 }
 
@@ -46,15 +76,6 @@ export function buildArgs(opts: any, draft: string) {
     show_stats: !!opts.stats,
     engine: opts.engine,
   };
-}
-
-async function getStdin(): Promise<string> {
-  return new Promise((resolve) => {
-    let data = '';
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('data', chunk => (data += chunk));
-    process.stdin.on('end', () => resolve(data.trim()));
-  });
 }
 
 export async function main(argv: string[]): Promise<void> {

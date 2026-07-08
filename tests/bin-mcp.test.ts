@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { mergeOllamaHeaderFlags } from "../src/bin/ollama-flags.js";
-import { parseOpts, buildArgs } from "../src/bin/mcp.js";
+import { parseOpts, buildArgs, buildProgram } from "../src/bin/mcp.js";
 
 async function runCliCapturingArgs(flags: string[]) {
   const opts = parseOpts(["node", "mcp", ...flags]);
@@ -46,5 +46,12 @@ describe("mcp CLI arg mapping", () => {
   it("passes brainstorm: true when -b is given", async () => {
     const args = await runCliCapturingArgs(["--draft", "x", "-b"]);
     expect(args.brainstorm).toBe(true);
+  });
+});
+
+describe("mcp CLI subcommands", () => {
+  it("registers a lint subcommand", () => {
+    const program = buildProgram();
+    expect(program.commands.map(c => c.name())).toContain("lint");
   });
 });
