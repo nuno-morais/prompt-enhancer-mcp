@@ -34,6 +34,7 @@ export function buildProgram(): commander.Command {
     .option('--stats', 'Include token count and efficiency stats in the output')
     .option('--engine <engine>', 'LLM engine to use (ollama or anthropic)')
     .enablePositionalOptions()
+    // no-op: commander v12 requires a root action once subcommands exist
     .action(() => {});
 
   program

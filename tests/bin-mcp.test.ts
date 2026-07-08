@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { mergeOllamaHeaderFlags } from "../src/bin/ollama-flags.js";
 import { parseOpts, buildArgs, buildProgram } from "../src/bin/mcp.js";
 
@@ -53,5 +53,38 @@ describe("mcp CLI subcommands", () => {
   it("registers a lint subcommand", () => {
     const program = buildProgram();
     expect(program.commands.map(c => c.name())).toContain("lint");
+  });
+
+  it("dispatches lint subcommand --draft flag correctly through parseAsync", async () => {
+    const program = buildProgram();
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("exit");
+    });
+
+    try {
+      await program.parseAsync(
+        ["node", "mcp", "lint", "Summarize the text in 3 sentences.", "--draft", "summarize"]
+      );
+    } catch (e: any) {
+      // process.exit throws, which is expected
+      if (e.message !== "exit") throw e;
+    }
+
+    // Verify console.log was called (lint command executed)
+    expect(logSpy).toHaveBeenCalled();
+    const output = logSpy.mock.calls[0]?.[0] ?? "";
+
+    // Verify --draft was received correctly by the lint subcommand:
+    // When draft IS provided, there should be no "draft not provided" note.
+    // A clean prompt with draft should output "No lint issues found."
+    expect(output).toBe("No lint issues found.");
+    expect(output).not.toContain("draft not provided");
+
+    // Verify process.exit(0) was called (no lint issues = exit 0)
+    expect(exitSpy).toHaveBeenCalledWith(0);
+
+    logSpy.mockRestore();
+    exitSpy.mockRestore();
   });
 });
