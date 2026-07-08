@@ -1,8 +1,7 @@
 import { DEFAULT_MODEL, DEFAULT_ENGINE, type TargetModel } from "./config.js";
 import { generateOptimizedPrompt, type ProgressCallback } from "./refine.js";
 import { getCacheKey, getCached, setCached, type CachedResult } from "./cache.js";
-import { loadPreset, formatGlossary } from "./preset.js";
-import { lintOptimizedPrompt } from "./lint.js";
+import { loadPreset } from "./preset.js";
 
 export const OPTIMIZE_PROMPT_TOOL = {
   name: "optimize_prompt",
@@ -66,6 +65,11 @@ export const OPTIMIZE_PROMPT_TOOL = {
         type: "boolean",
         default: true,
         description: "Automatically classify the draft's intent (web search / user artifact / brainstorm) and inject a matching instruction line; auto-enables brainstorm mode for ideation drafts when 'brainstorm' is not set."
+      },
+      auto_repair: {
+        type: "boolean",
+        default: true,
+        description: "Automatically fix repairable lint findings (e.g. wrong acronym expansions covered by the glossary) with one extra critic pass. Unfixable findings are still surfaced as warnings."
       }
     },
     required: ["draft"]
@@ -88,6 +92,7 @@ export async function handleOptimizePrompt(
     engine?: string;
     model?: string;
     auto_intent?: boolean;
+    auto_repair?: boolean;
   },
   progress?: {
     token: string | number;
@@ -101,12 +106,11 @@ export async function handleOptimizePrompt(
   const preset = loadPreset();
 
   const glossary = preset.glossary;
-  const glossaryBlock = glossary ? formatGlossary(glossary) : undefined;
-  const mergedContext = [args.context, glossaryBlock].filter(Boolean).join("\n\n") || undefined;
 
   const params = {
     draft: args.draft,
-    context: mergedContext,
+    context: args.context,
+    glossary,
     target_model: args.target_model ?? preset.target_model ?? "generic" as TargetModel,
     brainstorm: args.brainstorm ?? preset.brainstorm,
     explain: args.explain ?? preset.explain ?? false,
@@ -122,7 +126,8 @@ export async function handleOptimizePrompt(
         ? "claude-3-5-haiku-latest"
         : DEFAULT_MODEL
     ),
-    auto_intent: args.auto_intent ?? preset.auto_intent ?? true
+    auto_intent: args.auto_intent ?? preset.auto_intent ?? true,
+    auto_repair: args.auto_repair ?? preset.auto_repair ?? true
   };
 
   const useCache = !params.session_id;
@@ -165,14 +170,13 @@ export async function handleOptimizePrompt(
     });
   }
 
-  const expectedPlaceholder = result.intentResult?.intent === "user_artifact"
-    ? `{{${result.intentResult.artifactName ?? "artifact"}}}`
-    : undefined;
-  const lintWarnings = lintOptimizedPrompt(params.draft, args.context, result.optimizedPrompt, expectedPlaceholder, glossary);
-  if (lintWarnings.length > 0) {
+  if (result.repairedCount && result.repairedCount > 0) {
+    content.push({ type: "text", text: `✅ ${result.repairedCount} issue(s) auto-repaired.` });
+  }
+  if (result.lintWarnings && result.lintWarnings.length > 0) {
     content.push({
       type: "text",
-      text: `⚠️ **Prompt lint warnings:**\n${lintWarnings.map(w => `- ${w.message}`).join("\n")}`
+      text: `⚠️ **Prompt lint warnings:**\n${result.lintWarnings.map(w => `- ${w.message}`).join("\n")}`
     });
   }
 

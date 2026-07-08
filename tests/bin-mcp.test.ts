@@ -47,6 +47,16 @@ describe("mcp CLI arg mapping", () => {
     const args = await runCliCapturingArgs(["--draft", "x", "-b"]);
     expect(args.brainstorm).toBe(true);
   });
+
+  it("passes auto_repair: true by default", async () => {
+    const args = await runCliCapturingArgs(["--draft", "x"]);
+    expect(args.auto_repair).toBe(true);
+  });
+
+  it("passes auto_repair: false when --no-auto-repair is given", async () => {
+    const args = await runCliCapturingArgs(["--draft", "x", "--no-auto-repair"]);
+    expect(args.auto_repair).toBe(false);
+  });
 });
 
 describe("mcp CLI subcommands", () => {

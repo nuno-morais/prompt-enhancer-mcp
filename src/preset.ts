@@ -13,6 +13,7 @@ export type Preset = {
   show_diff?: boolean;
   auto_intent?: boolean;
   glossary?: Record<string, string>;
+  auto_repair?: boolean;
 };
 
 const VALID_TARGET_MODELS: TargetModel[] = ["generic", "claude", "gpt4o", "gemini"];
@@ -79,6 +80,9 @@ export function loadPreset(startDir: string = process.cwd()): Preset {
   }
   if (typeof obj.auto_intent === "boolean") {
     preset.auto_intent = obj.auto_intent;
+  }
+  if (typeof obj.auto_repair === "boolean") {
+    preset.auto_repair = obj.auto_repair;
   }
 
   if (typeof obj.glossary === "object" && obj.glossary !== null && !Array.isArray(obj.glossary)) {

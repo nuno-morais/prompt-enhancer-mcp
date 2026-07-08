@@ -82,7 +82,8 @@ describe("handleOptimizePrompt", () => {
       show_stats: false,
       show_diff: false,
       session_id: undefined,
-      auto_intent: true
+      auto_intent: true,
+      auto_repair: true
     });
   });
 
@@ -114,7 +115,8 @@ describe("handleOptimizePrompt", () => {
       show_stats: false,
       show_diff: false,
       session_id: undefined,
-      auto_intent: true
+      auto_intent: true,
+      auto_repair: true
     });
   });
 
@@ -153,7 +155,8 @@ describe("handleOptimizePrompt", () => {
       show_stats: false,
       show_diff: false,
       session_id: undefined,
-      auto_intent: true
+      auto_intent: true,
+      auto_repair: true
     });
   });
 
@@ -180,7 +183,9 @@ describe("handleOptimizePrompt", () => {
       show_diff: false,
       session_id: undefined,
       context: "This is a project about widgets.",
-      auto_intent: true
+      auto_intent: true,
+      auto_repair: true,
+      glossary: undefined
     });
   });
 
@@ -254,11 +259,17 @@ describe("handleOptimizePrompt", () => {
     expect(sendNotification).not.toHaveBeenCalled();
   });
 
-  it("appends a lint-warnings block when the optimized prompt has unresolved placeholders", async () => {
+  it("appends a lint-warnings block when the result carries lintWarnings", async () => {
     vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
     vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
     vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
-      optimizedPrompt: "<task>Sum</task>\n<content>{{text}}</content>"
+      optimizedPrompt: "<task>Sum</task>\n<content>{{text}}</content>",
+      lintWarnings: [{
+        message: "Unresolved placeholder(s) {{text}} — fill these in before using the prompt.",
+        kind: "unresolved_placeholder",
+        repairable: false
+      }],
+      repairedCount: 0
     });
 
     const result = await handleOptimizePrompt({
@@ -375,7 +386,7 @@ describe("auto_intent parameter", () => {
     expect(result.content.find(b => b.text.includes("Critic pass diff"))).toBeUndefined();
   });
 
-  it("includes glossary in context when preset has glossary and no caller context", async () => {
+  it("passes the raw glossary map (not merged into context) to generateOptimizedPrompt", async () => {
     vi.spyOn(presetModule, "loadPreset").mockReturnValue({
       glossary: { MCP: "Model Context Protocol" }
     });
@@ -389,12 +400,13 @@ describe("auto_intent parameter", () => {
 
     expect(generateSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        context: "Glossary (authoritative term meanings):\nMCP = Model Context Protocol"
+        context: undefined,
+        glossary: { MCP: "Model Context Protocol" }
       })
     );
   });
 
-  it("merges glossary with caller context when both are present", async () => {
+  it("passes caller context unmerged alongside the glossary map when both are present", async () => {
     vi.spyOn(presetModule, "loadPreset").mockReturnValue({
       glossary: { MCP: "Model Context Protocol" }
     });
@@ -412,33 +424,55 @@ describe("auto_intent parameter", () => {
 
     expect(generateSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        context: "This is a project about widgets.\n\nGlossary (authoritative term meanings):\nMCP = Model Context Protocol"
+        context: "This is a project about widgets.",
+        glossary: { MCP: "Model Context Protocol" }
       })
     );
   });
 
-  it("passes glossary to lintOptimizedPrompt", async () => {
-    vi.spyOn(presetModule, "loadPreset").mockReturnValue({
-      glossary: { MCP: "Model Context Protocol" }
+  it("defaults auto_repair to true and forwards preset/explicit overrides", async () => {
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+    const generateSpy = vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "optimized text"
     });
+
+    await handleOptimizePrompt({ draft: "hello world", interactive: false });
+    expect(generateSpy.mock.calls[0][0].auto_repair).toBe(true);
+
+    await handleOptimizePrompt({ draft: "hello world 2", interactive: false, auto_repair: false });
+    expect(generateSpy.mock.calls[1][0].auto_repair).toBe(false);
+  });
+
+  it("renders an auto-repaired note before any remaining lint-warnings block", async () => {
     vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
     vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
     vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
-      optimizedPrompt: "Here is the optimized prompt"
+      optimizedPrompt: "final text",
+      repairedCount: 1,
+      lintWarnings: []
     });
 
-    // We need to spy on lintOptimizedPrompt to verify it receives the glossary
-    const lintModule = await import("../src/lint.js");
-    const lintSpy = vi.spyOn(lintModule, "lintOptimizedPrompt").mockReturnValue([]);
+    const result = await handleOptimizePrompt({ draft: "hello world", interactive: false });
 
-    await handleOptimizePrompt({ draft: "hello world", interactive: false });
+    expect(result.content.some(b => b.text.includes("1 issue(s) auto-repaired."))).toBe(true);
+    expect(result.content.some(b => b.text.includes("Prompt lint warnings"))).toBe(false);
+  });
 
-    expect(lintSpy).toHaveBeenCalledWith(
-      "hello world",
-      undefined,
-      "Here is the optimized prompt",
-      undefined,
-      { MCP: "Model Context Protocol" }
-    );
+  it("renders remaining lint warnings from the result when repairedCount is 0", async () => {
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+    vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "final text",
+      repairedCount: 0,
+      lintWarnings: [{ message: "Unresolved placeholder {{doc}}", kind: "unresolved_placeholder", repairable: false }]
+    });
+
+    const result = await handleOptimizePrompt({ draft: "hello world", interactive: false });
+
+    expect(result.content.some(b => b.text.includes("auto-repaired"))).toBe(false);
+    const warnBlock = result.content.find(b => b.text.includes("Prompt lint warnings"));
+    expect(warnBlock).toBeDefined();
+    expect(warnBlock!.text).toContain("Unresolved placeholder {{doc}}");
   });
 });

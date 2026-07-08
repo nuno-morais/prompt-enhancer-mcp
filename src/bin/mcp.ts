@@ -31,6 +31,7 @@ export function buildProgram(): commander.Command {
     .option('--no-cot', 'Disable automatic Chain-of-Thought injection')
     .option('--no-guardrails', 'Disable automatic negative-constraint (guardrail) injection')
     .option('--no-auto-intent', 'Disable automatic intent classification (web-search/artifact hints and auto-brainstorm)')
+    .option('--no-auto-repair', 'Disable automatic repair of lint findings')
     .option('--stats', 'Include token count and efficiency stats in the output')
     .option('--engine <engine>', 'LLM engine to use (ollama or anthropic)')
     .enablePositionalOptions()
@@ -74,6 +75,7 @@ export function buildArgs(opts: any, draft: string) {
     auto_cot: opts.cot,
     auto_guardrails: opts.guardrails,
     auto_intent: opts.autoIntent,
+    auto_repair: opts.autoRepair,
     show_stats: !!opts.stats,
     engine: opts.engine,
   };

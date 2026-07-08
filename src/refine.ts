@@ -8,6 +8,8 @@ import { generateNegativeConstraints, injectGuardrails } from "./guardrails.js";
 import { calculateStats, formatStatsString } from "./stats.js";
 import { classifyIntent, buildIntentLine, injectIntentLine, type IntentResult } from "./intent-classifier.js";
 import { diffLines } from "./diff.js";
+import { lintOptimizedPrompt, type LintWarning } from "./lint.js";
+import { formatGlossary } from "./preset.js";
 
 const CRITIC_SYSTEM_PROMPT = `
 You are a meticulous Prompt Engineering reviewer. You will receive the ORIGINAL
@@ -58,6 +60,28 @@ STRICT RULES:
 </draft_b>
 `;
 
+const REPAIR_SYSTEM_PROMPT = `
+You are a prompt-repair specialist. You will receive an optimized PROMPT and a
+list of specific ISSUES found in it. Produce a corrected version.
+
+STRICT RULES (must not be broken):
+1. Fix EXACTLY the listed issues. Change NOTHING else — no rephrasing,
+   no restructuring, no additions beyond what the fixes require.
+2. Never invent content for {{placeholders}}; leave them untouched.
+3. Respond ONLY with the corrected prompt inside a markdown code block with a
+   language qualifier (e.g. \`\`\`text), and nothing else.
+
+<prompt>
+{{prompt}}
+</prompt>
+
+<issues>
+{{issues}}
+</issues>
+
+Now output the corrected prompt.
+`;
+
 const SKIP_CRITIC_EXPLANATION = "No critic pass (trivial draft).";
 
 export type ProgressCallback = (step: number, total: number, message: string) => void;
@@ -96,6 +120,51 @@ async function applyIntentLine(
   return { finalPrompt, intentResult, intentNote };
 }
 
+async function lintAndRepair(
+  finalPrompt: string,
+  params: { draft: string; context?: string; engine: LLMEngine; model: string;
+            auto_repair?: boolean; glossary?: Record<string, string> },
+  expectedPlaceholder: string | undefined,
+  llmOptions: Record<string, unknown>
+): Promise<{ finalPrompt: string; lintWarnings: LintWarning[]; repairedCount: number }> {
+  const lintContext = [params.context, params.glossary ? formatGlossary(params.glossary) : undefined]
+    .filter(Boolean).join("\n\n") || undefined;
+  const warnings = lintOptimizedPrompt(params.draft, lintContext, finalPrompt, expectedPlaceholder, params.glossary);
+  const repairable = warnings.filter(w => w.repairable);
+  if (params.auto_repair === false || repairable.length === 0) {
+    return { finalPrompt, lintWarnings: warnings, repairedCount: 0 };
+  }
+
+  const issues = repairable.map(w => {
+    if (w.kind === "suspect_expansion" && params.glossary) {
+      const glossaryLines = Object.entries(params.glossary).map(([t, m]) => `${t} = ${m}`).join("; ");
+      return `- ${w.message} (Authoritative glossary: ${glossaryLines})`;
+    }
+    return `- ${w.message}`;
+  }).join("\n");
+
+  try {
+    const repairPrompt = REPAIR_SYSTEM_PROMPT
+      .split("{{prompt}}").join(finalPrompt)
+      .split("{{issues}}").join(issues);
+    const response = await generateChat({
+      engine: params.engine,
+      model: params.model,
+      messages: [
+        { role: "system", content: repairPrompt },
+        { role: "user", content: "Output the corrected prompt now." }
+      ],
+      options: llmOptions
+    });
+    const repaired = extractCodeBlock(response.message.content);
+    const remaining = lintOptimizedPrompt(params.draft, lintContext, repaired, expectedPlaceholder, params.glossary);
+    return { finalPrompt: repaired, lintWarnings: remaining, repairedCount: repairable.length };
+  } catch (error) {
+    console.error("Repair pass failed, keeping pre-repair prompt:", error);
+    return { finalPrompt, lintWarnings: warnings, repairedCount: 0 };
+  }
+}
+
 export async function generateOptimizedPrompt(
   params: {
     draft: string;
@@ -111,10 +180,15 @@ export async function generateOptimizedPrompt(
     show_stats?: boolean;
     auto_intent?: boolean;
     show_diff?: boolean;
+    auto_repair?: boolean;
+    glossary?: Record<string, string>;
   },
   onProgress?: ProgressCallback
-): Promise<{ optimizedPrompt: string; explanation?: string; stats?: string; intentResult?: IntentResult; diff?: string }> {
+): Promise<{ optimizedPrompt: string; explanation?: string; stats?: string; intentResult?: IntentResult; diff?: string; lintWarnings?: LintWarning[]; repairedCount?: number }> {
   const session = params.session_id ? getSession(params.session_id) : undefined;
+
+  const effectiveContext = [params.context, params.glossary ? formatGlossary(params.glossary) : undefined]
+    .filter(Boolean).join("\n\n") || undefined;
 
   const autoIntent = params.auto_intent !== false;
   let intentResult: IntentResult | undefined;
@@ -126,14 +200,14 @@ export async function generateOptimizedPrompt(
     const { params: classifierParams } = getMetaPromptConfig(params.target_model, false);
     if (params.brainstorm === undefined) {
       // Must know the intent before choosing the system prompt
-      intentResult = await classifyIntent(params.draft, params.context, params.model, params.engine, classifierParams);
+      intentResult = await classifyIntent(params.draft, effectiveContext, params.model, params.engine, classifierParams);
       if (intentResult.intent === "brainstorm") {
         brainstorm = true;
         autoEnabledBrainstorm = true;
       }
     } else {
       // Explicit brainstorm: classify in parallel, use result only for the line
-      intentPromise = classifyIntent(params.draft, params.context, params.model, params.engine, classifierParams);
+      intentPromise = classifyIntent(params.draft, effectiveContext, params.model, params.engine, classifierParams);
     }
   }
 
@@ -194,11 +268,15 @@ export async function generateOptimizedPrompt(
       stats = formatStatsString(calculateStats(params.draft, newPrompt));
     }
 
+    const lintWarnings = lintOptimizedPrompt(params.draft, effectiveContext, newPrompt, undefined, params.glossary);
+
     return {
       optimizedPrompt: newPrompt,
       explanation,
       stats,
-      diff: params.show_diff ? diffLines(previousPrompt, newPrompt) : undefined
+      diff: params.show_diff ? diffLines(previousPrompt, newPrompt) : undefined,
+      lintWarnings,
+      repairedCount: 0
     };
   }
 
@@ -218,8 +296,8 @@ export async function generateOptimizedPrompt(
     : Promise.resolve(null);
 
   const userDraftBlock = `<user_draft>\n${params.draft}\n</user_draft>`;
-  const userMessageContent = params.context?.trim()
-    ? `<background_context>\n${params.context}\n</background_context>\n${userDraftBlock}`
+  const userMessageContent = effectiveContext?.trim()
+    ? `<background_context>\n${effectiveContext}\n</background_context>\n${userDraftBlock}`
     : userDraftBlock;
 
   const messages: import("./llm.js").ChatMessage[] = [
@@ -248,6 +326,12 @@ export async function generateOptimizedPrompt(
     let intentNote: string | undefined;
     ({ finalPrompt, intentResult, intentNote } = await applyIntentLine(finalPrompt, intentPromise, intentResult, autoEnabledBrainstorm, params.target_model));
 
+    const expectedPlaceholder = intentResult?.intent === "user_artifact"
+      ? `{{${intentResult.artifactName ?? "artifact"}}}`
+      : undefined;
+    const repairOutcome = await lintAndRepair(finalPrompt, params, expectedPlaceholder, ollamaParams);
+    finalPrompt = repairOutcome.finalPrompt;
+
     if (params.session_id) {
       messages.push({
         role: "assistant",
@@ -267,7 +351,9 @@ export async function generateOptimizedPrompt(
         : undefined,
       stats,
       intentResult,
-      diff: params.show_diff ? "(critic pass skipped — no diff available)" : undefined
+      diff: params.show_diff ? "(critic pass skipped — no diff available)" : undefined,
+      lintWarnings: repairOutcome.lintWarnings,
+      repairedCount: repairOutcome.repairedCount
     };
   }
 
@@ -299,6 +385,12 @@ export async function generateOptimizedPrompt(
   let intentNote: string | undefined;
   ({ finalPrompt, intentResult, intentNote } = await applyIntentLine(finalPrompt, intentPromise, intentResult, autoEnabledBrainstorm, params.target_model));
 
+  const expectedPlaceholder = intentResult?.intent === "user_artifact"
+    ? `{{${intentResult.artifactName ?? "artifact"}}}`
+    : undefined;
+  const repairOutcome = await lintAndRepair(finalPrompt, params, expectedPlaceholder, ollamaParams);
+  finalPrompt = repairOutcome.finalPrompt;
+
   const diff = params.show_diff ? diffLines(firstDraftPrompt, finalPrompt) : undefined;
 
   if (params.session_id) {
@@ -315,7 +407,14 @@ export async function generateOptimizedPrompt(
   }
 
   if (!params.explain) {
-    return { optimizedPrompt: finalPrompt, stats, intentResult, diff };
+    return {
+      optimizedPrompt: finalPrompt,
+      stats,
+      intentResult,
+      diff,
+      lintWarnings: repairOutcome.lintWarnings,
+      repairedCount: repairOutcome.repairedCount
+    };
   }
 
   onProgress?.(3, total, "Generating change summary...");
@@ -341,6 +440,8 @@ export async function generateOptimizedPrompt(
       : explainResponse.message.content.trim(),
     stats,
     intentResult,
-    diff
+    diff,
+    lintWarnings: repairOutcome.lintWarnings,
+    repairedCount: repairOutcome.repairedCount
   };
 }

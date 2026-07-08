@@ -384,6 +384,182 @@ describe("generateOptimizedPrompt", () => {
   });
 });
 
+describe("auto-repair", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const REPAIR_DRAFT = "please review the MCP server usability and quality in detail across many many different dimensions today";
+
+  function mockThreeCalls(first: string, second: string, third: string | Error) {
+    const fn = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ message: { role: "assistant", content: first } })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ message: { role: "assistant", content: second } })
+      });
+    if (third instanceof Error) {
+      fn.mockRejectedValueOnce(third);
+    } else {
+      fn.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ message: { role: "assistant", content: third } })
+      });
+    }
+    return fn;
+  }
+
+  it("runs one repair call when a repairable warning exists and returns the fixed prompt", async () => {
+    const fetchMock = mockThreeCalls(
+      "```text\nFirst draft prompt\n```",
+      "```text\nReview the MCP (Multi-Criteria Problem) server.\n```",
+      "```text\nReview the MCP (Model Context Protocol) server.\n```"
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateOptimizedPrompt({
+      draft: REPAIR_DRAFT,
+      target_model: "generic",
+      brainstorm: false,
+      explain: false,
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: false,
+      glossary: { MCP: "Model Context Protocol" },
+      auto_repair: true
+    });
+
+    expect(result.optimizedPrompt).toContain("Model Context Protocol");
+    expect(result.repairedCount).toBe(1);
+    expect(result.lintWarnings).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not repair unrepairable warnings and surfaces them", async () => {
+    const fetchMock = mockFirstAndSecondCalls(
+      "```text\nFirst draft prompt\n```",
+      "```text\nReview the {{doc}} carefully.\n```"
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateOptimizedPrompt({
+      draft: REPAIR_DRAFT,
+      target_model: "generic",
+      brainstorm: false,
+      explain: false,
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: false,
+      auto_repair: true
+    });
+
+    expect(result.repairedCount).toBe(0);
+    expect(result.lintWarnings?.map(w => w.kind)).toContain("unresolved_placeholder");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back to the pre-repair prompt when the repair call throws", async () => {
+    const fetchMock = mockThreeCalls(
+      "```text\nFirst draft prompt\n```",
+      "```text\nReview the MCP (Multi-Criteria Problem) server.\n```",
+      new Error("network down")
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateOptimizedPrompt({
+      draft: REPAIR_DRAFT,
+      target_model: "generic",
+      brainstorm: false,
+      explain: false,
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: false,
+      glossary: { MCP: "Model Context Protocol" },
+      auto_repair: true
+    });
+
+    expect(result.optimizedPrompt).toContain("Multi-Criteria Problem");
+    expect(result.lintWarnings?.length).toBe(1);
+  });
+
+  it("skips repair entirely when auto_repair is false", async () => {
+    const fetchMock = mockFirstAndSecondCalls(
+      "```text\nFirst draft prompt\n```",
+      "```text\nReview the MCP (Multi-Criteria Problem) server.\n```"
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateOptimizedPrompt({
+      draft: REPAIR_DRAFT,
+      target_model: "generic",
+      brainstorm: false,
+      explain: false,
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: false,
+      glossary: { MCP: "Model Context Protocol" },
+      auto_repair: false
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.lintWarnings?.length).toBe(1);
+  });
+
+  it("session-feedback branch lints without repairing", async () => {
+    const sessionId = `repair-session-${Date.now()}`;
+    const fetchMock = mockFirstAndSecondCalls(
+      "```text\nFirst draft prompt\n```",
+      "```text\nReview the MCP (Multi-Criteria Problem) server.\n```"
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await generateOptimizedPrompt({
+      draft: REPAIR_DRAFT,
+      target_model: "generic",
+      brainstorm: false,
+      explain: false,
+      model: "test-model",
+      session_id: sessionId,
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: false,
+      glossary: { MCP: "Model Context Protocol" },
+      auto_repair: false
+    });
+
+    const feedbackFetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ message: { role: "assistant", content: "```text\nReview the MCP (Multi-Criteria Problem) server, revised.\n```" } })
+    });
+    vi.stubGlobal("fetch", feedbackFetchMock);
+
+    const result = await generateOptimizedPrompt({
+      draft: "make the MCP mention more precise",
+      target_model: "generic",
+      brainstorm: false,
+      explain: false,
+      model: "test-model",
+      session_id: sessionId,
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: false,
+      glossary: { MCP: "Model Context Protocol" },
+      auto_repair: true
+    });
+
+    expect(feedbackFetchMock).toHaveBeenCalledTimes(1); // no repair call fired
+    expect(result.repairedCount).toBe(0);
+    expect(result.lintWarnings?.length).toBe(1);
+  });
+});
+
 describe("intent classification integration", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
