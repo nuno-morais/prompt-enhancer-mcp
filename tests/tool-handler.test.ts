@@ -346,6 +346,23 @@ describe("handleOptimizePrompt", () => {
       })
     );
   });
+
+  it("ignores scanProject errors and proceeds with the base context", async () => {
+    vi.mocked(scanProject).mockRejectedValue(new Error("Scan failed"));
+    const generateSpy = vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "optimized text"
+    });
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+
+    await handleOptimizePrompt({ draft: "test", context: "Base Context", auto_context: true, interactive: false });
+    
+    expect(generateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: "Base Context"
+      })
+    );
+  });
 });
 
 describe("auto_intent parameter", () => {

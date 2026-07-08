@@ -116,9 +116,13 @@ export async function handleOptimizePrompt(
 
   let finalContext = args.context;
   if (args.auto_context) {
-    const autoContext = await scanProject(process.cwd());
-    if (autoContext) {
-      finalContext = finalContext ? `${finalContext}\n\n${autoContext}` : autoContext;
+    try {
+      const autoContext = await scanProject(process.cwd());
+      if (autoContext) {
+        finalContext = finalContext ? `${finalContext}\n\n${autoContext}` : autoContext;
+      }
+    } catch (error) {
+      console.warn("Failed to scan project for auto_context:", error);
     }
   }
 
