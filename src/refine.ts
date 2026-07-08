@@ -6,6 +6,7 @@ import { getSession, saveSession } from "./session.js";
 import { requiresCoT, injectCoT } from "./cot-injector.js";
 import { generateNegativeConstraints, injectGuardrails } from "./guardrails.js";
 import { calculateStats, formatStatsString } from "./stats.js";
+import { classifyIntent, buildIntentLine, injectIntentLine, type IntentResult } from "./intent-classifier.js";
 
 const CRITIC_SYSTEM_PROMPT = `
 You are a meticulous Prompt Engineering reviewer. You will receive the ORIGINAL
@@ -70,7 +71,7 @@ export async function generateOptimizedPrompt(
     draft: string;
     context?: string;
     target_model: TargetModel;
-    brainstorm: boolean;
+    brainstorm: boolean | undefined;
     explain: boolean;
     engine: LLMEngine;
     model: string;
@@ -78,12 +79,34 @@ export async function generateOptimizedPrompt(
     auto_cot?: boolean;
     auto_guardrails?: boolean;
     show_stats?: boolean;
+    auto_intent?: boolean;
   },
   onProgress?: ProgressCallback
-): Promise<{ optimizedPrompt: string; explanation?: string; stats?: string }> {
-  const { systemPrompt, params: ollamaParams } = getMetaPromptConfig(params.target_model, params.brainstorm);
-
+): Promise<{ optimizedPrompt: string; explanation?: string; stats?: string; intentResult?: IntentResult }> {
   const session = params.session_id ? getSession(params.session_id) : undefined;
+
+  const autoIntent = params.auto_intent !== false;
+  let intentResult: IntentResult | undefined;
+  let intentPromise: Promise<IntentResult> | undefined;
+  let brainstorm = params.brainstorm ?? false;
+  let autoEnabledBrainstorm = false;
+
+  if (!session && autoIntent) {
+    const { params: classifierParams } = getMetaPromptConfig(params.target_model, false);
+    if (params.brainstorm === undefined) {
+      // Must know the intent before choosing the system prompt
+      intentResult = await classifyIntent(params.draft, params.context, params.model, params.engine, classifierParams);
+      if (intentResult.intent === "brainstorm") {
+        brainstorm = true;
+        autoEnabledBrainstorm = true;
+      }
+    } else {
+      // Explicit brainstorm: classify in parallel, use result only for the line
+      intentPromise = classifyIntent(params.draft, params.context, params.model, params.engine, classifierParams);
+    }
+  }
+
+  const { systemPrompt, params: ollamaParams } = getMetaPromptConfig(params.target_model, brainstorm);
 
   if (session) {
     if (params.explain) {
@@ -146,7 +169,7 @@ export async function generateOptimizedPrompt(
     };
   }
 
-  const willRunCritic = !isTrivialDraft(params.draft, params.target_model, params.brainstorm);
+  const willRunCritic = !isTrivialDraft(params.draft, params.target_model, brainstorm);
   const total = willRunCritic ? (params.explain ? 3 : 2) : (params.explain ? 1 : 0);
 
   if (total > 0) {
@@ -189,6 +212,17 @@ export async function generateOptimizedPrompt(
       finalPrompt = injectGuardrails(finalPrompt, constraints);
     }
 
+    if (intentPromise) {
+      intentResult = await intentPromise;
+    }
+    const intentLine = intentResult ? buildIntentLine(intentResult) : null;
+    if (intentLine) {
+      finalPrompt = injectIntentLine(finalPrompt, intentLine, params.target_model);
+    }
+    const intentNote = autoEnabledBrainstorm
+      ? "Detected ideation draft; enabled brainstorm mode."
+      : (intentLine ? `Detected intent: ${intentResult!.intent}; added a capability instruction.` : undefined);
+
     if (params.session_id) {
       messages.push({
         role: "assistant",
@@ -203,8 +237,11 @@ export async function generateOptimizedPrompt(
 
     return {
       optimizedPrompt: finalPrompt,
-      explanation: params.explain ? SKIP_CRITIC_EXPLANATION : undefined,
-      stats
+      explanation: params.explain
+        ? (intentNote ? `${SKIP_CRITIC_EXPLANATION} ${intentNote}` : SKIP_CRITIC_EXPLANATION)
+        : undefined,
+      stats,
+      intentResult
     };
   }
 
@@ -233,6 +270,17 @@ export async function generateOptimizedPrompt(
     finalPrompt = injectGuardrails(finalPrompt, constraints);
   }
 
+  if (intentPromise) {
+    intentResult = await intentPromise;
+  }
+  const intentLine = intentResult ? buildIntentLine(intentResult) : null;
+  if (intentLine) {
+    finalPrompt = injectIntentLine(finalPrompt, intentLine, params.target_model);
+  }
+  const intentNote = autoEnabledBrainstorm
+    ? "Detected ideation draft; enabled brainstorm mode."
+    : (intentLine ? `Detected intent: ${intentResult!.intent}; added a capability instruction.` : undefined);
+
   if (params.session_id) {
     messages.push({
       role: "assistant",
@@ -247,7 +295,7 @@ export async function generateOptimizedPrompt(
   }
 
   if (!params.explain) {
-    return { optimizedPrompt: finalPrompt, stats };
+    return { optimizedPrompt: finalPrompt, stats, intentResult };
   }
 
   onProgress?.(3, total, "Generating change summary...");
@@ -268,7 +316,10 @@ export async function generateOptimizedPrompt(
 
   return {
     optimizedPrompt: finalPrompt,
-    explanation: explainResponse.message.content.trim(),
-    stats
+    explanation: intentNote
+      ? `${explainResponse.message.content.trim()} ${intentNote}`
+      : explainResponse.message.content.trim(),
+    stats,
+    intentResult
   };
 }

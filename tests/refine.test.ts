@@ -29,7 +29,8 @@ describe("generateOptimizedPrompt", () => {
       target_model: "generic",
       brainstorm: false,
       explain: false,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -46,7 +47,8 @@ describe("generateOptimizedPrompt", () => {
       target_model: "generic",
       brainstorm: false,
       explain: false,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     const secondCallBody = JSON.parse(fetchMock.mock.calls[1][1].body);
@@ -68,7 +70,8 @@ describe("generateOptimizedPrompt", () => {
       target_model: "generic",
       brainstorm: false,
       explain: false,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     const firstCallBody = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -88,7 +91,8 @@ describe("generateOptimizedPrompt", () => {
       target_model: "generic",
       brainstorm: false,
       explain: false,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     const firstCallBody = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -108,7 +112,8 @@ describe("generateOptimizedPrompt", () => {
       target_model: "generic",
       brainstorm: false,
       explain: false,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     const secondCallBody = JSON.parse(fetchMock.mock.calls[1][1].body);
@@ -126,7 +131,8 @@ describe("generateOptimizedPrompt", () => {
       target_model: "generic",
       brainstorm: false,
       explain: false,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     const secondCallBody = JSON.parse(fetchMock.mock.calls[1][1].body);
@@ -150,7 +156,8 @@ describe("generateOptimizedPrompt", () => {
         target_model: "generic",
         brainstorm: false,
         explain: false,
-        model: "test-model"
+        model: "test-model",
+        auto_intent: false
       })
     ).rejects.toThrow("Ollama request failed: 500 Internal Server Error");
 
@@ -169,7 +176,8 @@ describe("generateOptimizedPrompt", () => {
       target_model: "generic",
       brainstorm: false,
       explain: false,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -189,7 +197,8 @@ describe("generateOptimizedPrompt", () => {
       target_model: "generic",
       brainstorm: false,
       explain: true,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -206,7 +215,8 @@ describe("generateOptimizedPrompt", () => {
       target_model: "claude",
       brainstorm: false,
       explain: false,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -222,7 +232,8 @@ describe("generateOptimizedPrompt", () => {
       target_model: "generic",
       brainstorm: true,
       explain: false,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -250,7 +261,8 @@ describe("generateOptimizedPrompt", () => {
       target_model: "generic",
       brainstorm: false,
       explain: true,
-      model: "test-model"
+      model: "test-model",
+      auto_intent: false
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -278,7 +290,8 @@ describe("generateOptimizedPrompt", () => {
         target_model: "generic",
         brainstorm: false,
         explain: false,
-        model: "test-model"
+        model: "test-model",
+        auto_intent: false
       },
       onProgress
     );
@@ -301,7 +314,8 @@ describe("generateOptimizedPrompt", () => {
         target_model: "generic",
         brainstorm: false,
         explain: true,
-        model: "test-model"
+        model: "test-model",
+        auto_intent: false
       },
       onProgress
     );
@@ -322,7 +336,8 @@ describe("generateOptimizedPrompt", () => {
         target_model: "generic",
         brainstorm: false,
         explain: false,
-        model: "test-model"
+        model: "test-model",
+        auto_intent: false
       },
       onProgress
     );
@@ -356,7 +371,8 @@ describe("generateOptimizedPrompt", () => {
         target_model: "generic",
         brainstorm: false,
         explain: true,
-        model: "test-model"
+        model: "test-model",
+        auto_intent: false
       },
       onProgress
     );
@@ -365,5 +381,172 @@ describe("generateOptimizedPrompt", () => {
     expect(onProgress).toHaveBeenNthCalledWith(1, 1, 3, "Generating initial draft...");
     expect(onProgress).toHaveBeenNthCalledWith(2, 2, 3, "Reviewing draft with critic pass...");
     expect(onProgress).toHaveBeenNthCalledWith(3, 3, 3, "Generating change summary...");
+  });
+});
+
+describe("intent classification integration", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  // Mocks fetch so the intent classifier call (system prompt contains
+  // "Classify the user's task draft") answers `intentAnswer`, and every
+  // other call returns a generic code block.
+  function mockLLM(intentAnswer: string) {
+    const fetchMock = vi.fn().mockImplementation(async (_url: string, init: { body: string }) => {
+      const body = JSON.parse(init.body);
+      const system = body.messages.find((m: { role: string }) => m.role === "system")?.content ?? "";
+      if (system.includes("Classify the user's task draft")) {
+        return {
+          ok: true,
+          json: () => Promise.resolve({ message: { role: "assistant", content: intentAnswer } })
+        };
+      }
+      return {
+        ok: true,
+        json: () => Promise.resolve({ message: { role: "assistant", content: "```text\nOptimized prompt body.\n```" } })
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("auto-enables brainstorm mode when brainstorm is unset and intent is BRAINSTORM", async () => {
+    const fetchMock = mockLLM("BRAINSTORM");
+    const result = await generateOptimizedPrompt({
+      draft: "ideas for naming a coffee shop with a long enough draft to trigger the critic pass",
+      target_model: "generic",
+      brainstorm: undefined,
+      explain: false,
+      engine: "ollama",
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: true
+    });
+
+    const mainCall = fetchMock.mock.calls.find((c: [string, { body: string }]) => {
+      const body = JSON.parse(c[1].body);
+      return body.messages.some((m: { role: string; content: string }) => m.role === "system" && m.content.includes("BRAINSTORMING TASKS"));
+    });
+    expect(mainCall).toBeDefined();
+    expect(result.intentResult?.intent).toBe("brainstorm");
+  });
+
+  it("does NOT enable brainstorm when the caller explicitly passed brainstorm: false", async () => {
+    const fetchMock = mockLLM("BRAINSTORM");
+    await generateOptimizedPrompt({
+      draft: "ideas for naming a coffee shop with a long enough draft to trigger the critic pass",
+      target_model: "generic",
+      brainstorm: false,
+      explain: false,
+      engine: "ollama",
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: true
+    });
+
+    const brainstormCall = fetchMock.mock.calls.find((c: [string, { body: string }]) => {
+      const body = JSON.parse(c[1].body);
+      return body.messages.some((m: { role: string; content: string }) => m.role === "system" && m.content.includes("BRAINSTORMING TASKS"));
+    });
+    expect(brainstormCall).toBeUndefined();
+  });
+
+  it("injects the web-search line when intent is WEB_SEARCH", async () => {
+    mockLLM("WEB_SEARCH");
+    const result = await generateOptimizedPrompt({
+      draft: "what are the latest breaking changes in the newest React release this year",
+      target_model: "generic",
+      brainstorm: undefined,
+      explain: false,
+      engine: "ollama",
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: true
+    });
+
+    expect(result.optimizedPrompt).toContain(
+      "Use up-to-date information; search the web before answering."
+    );
+    expect(result.intentResult?.intent).toBe("web_search");
+  });
+
+  it("performs no classification call when auto_intent is false", async () => {
+    const fetchMock = mockLLM("WEB_SEARCH");
+    const result = await generateOptimizedPrompt({
+      draft: "short trivial draft",
+      target_model: "generic",
+      brainstorm: undefined,
+      explain: false,
+      engine: "ollama",
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: false
+    });
+
+    const classifierCalls = fetchMock.mock.calls.filter((c: [string, { body: string }]) => {
+      const body = JSON.parse(c[1].body);
+      return body.messages.some((m: { role: string; content: string }) => m.role === "system" && m.content.includes("Classify the user's task draft"));
+    });
+    expect(classifierCalls).toHaveLength(0);
+    expect(result.intentResult).toBeUndefined();
+    expect(result.optimizedPrompt).not.toContain("search the web");
+  });
+
+  it("performs no classification call on session refinement calls", async () => {
+    const fetchMock = mockLLM("WEB_SEARCH");
+    const sessionId = `intent-test-${Date.now()}`;
+    // First call establishes the session (classification allowed here)
+    await generateOptimizedPrompt({
+      draft: "first draft long enough to run through the full standard pipeline today",
+      target_model: "generic",
+      brainstorm: undefined,
+      explain: false,
+      engine: "ollama",
+      model: "test-model",
+      session_id: sessionId,
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: true
+    });
+    const callsAfterFirst = fetchMock.mock.calls.length;
+    // Second call refines within the session — must not classify
+    await generateOptimizedPrompt({
+      draft: "make it shorter",
+      target_model: "generic",
+      brainstorm: undefined,
+      explain: false,
+      engine: "ollama",
+      model: "test-model",
+      session_id: sessionId,
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: true
+    });
+    const classifierCallsInRefinement = fetchMock.mock.calls.slice(callsAfterFirst).filter((c: [string, { body: string }]) => {
+      const body = JSON.parse(c[1].body);
+      return body.messages.some((m: { role: string; content: string }) => m.role === "system" && m.content.includes("Classify the user's task draft"));
+    });
+    expect(classifierCallsInRefinement).toHaveLength(0);
+  });
+
+  it("mentions auto-enabled brainstorm in the explanation when explain is true", async () => {
+    mockLLM("BRAINSTORM");
+    const result = await generateOptimizedPrompt({
+      draft: "ideas for naming a coffee shop with a long enough draft to trigger the critic pass",
+      target_model: "generic",
+      brainstorm: undefined,
+      explain: true,
+      engine: "ollama",
+      model: "test-model",
+      auto_cot: false,
+      auto_guardrails: false,
+      auto_intent: true
+    });
+    expect(result.explanation).toContain("brainstorm");
   });
 });
