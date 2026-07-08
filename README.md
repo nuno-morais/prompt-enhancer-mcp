@@ -182,8 +182,8 @@ The response is a JSON object with a `content` array, exactly like the MCP tool 
 ```json
 {
   "content": [
-    { "type": "text", "value": "<optimized‑prompt>" },
-    { "type": "text", "value": "<optional‑explanation>" }
+    { "type": "text", "text": "<optimized‑prompt>" },
+    { "type": "text", "text": "<optional‑explanation>" }
   ]
 }
 ```
