@@ -6,25 +6,18 @@ import * as util from "util";
 const execAsync = util.promisify(cp.exec);
 
 export async function scanProject(cwd: string): Promise<string | null> {
-  let contextParts: string[] = [];
+  const contextParts: string[] = [];
 
+  const pkgPath = path.join(cwd, "package.json");
   try {
-    const pkgPath = path.join(cwd, "package.json");
-    try {
-      await fs.access(pkgPath);
-      const pkgRaw = await fs.readFile(pkgPath, "utf-8");
-      const pkg = JSON.parse(pkgRaw);
-      const deps = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}));
-      if (deps.length > 0) {
-        contextParts.push(`Dependencies/Frameworks: ${deps.slice(0, 10).join(", ")}`);
-      }
-    } catch (e: any) {
-      if (e.code !== "ENOENT") {
-        console.warn(`Error reading or parsing package.json: ${e.message}`);
-      }
+    const pkgRaw = await fs.readFile(pkgPath, "utf-8");
+    const pkg = JSON.parse(pkgRaw);
+    const deps = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}));
+    if (deps.length > 0) {
+      contextParts.push(`Dependencies/Frameworks: ${deps.slice(0, 10).join(", ")}`);
     }
   } catch (e: any) {
-    console.warn(`Unexpected error processing package.json: ${e.message}`);
+    // Ignore ENOENT and parsing errors
   }
 
   try {
@@ -34,9 +27,7 @@ export async function scanProject(cwd: string): Promise<string | null> {
       contextParts.push(`Modified files:\n${statusStr}`);
     }
   } catch (e: any) {
-    if (!e.message.includes("not a git repository") && !e.message.includes("not a git repo")) {
-      console.warn(`Git status error: ${e.message}`);
-    }
+    // Ignore git status errors
   }
 
   if (contextParts.length === 0) return null;
