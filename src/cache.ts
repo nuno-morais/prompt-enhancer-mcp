@@ -19,9 +19,10 @@ export function getCacheKey(params: {
   draft: string;
   context?: string;
   target_model: TargetModel;
-  brainstorm: boolean;
+  brainstorm: boolean | null;
   explain: boolean;
   model: string;
+  auto_intent: boolean;
 }): string {
   const raw = JSON.stringify({
     draft: params.draft,
@@ -29,7 +30,8 @@ export function getCacheKey(params: {
     target_model: params.target_model,
     brainstorm: params.brainstorm,
     explain: params.explain,
-    model: params.model
+    model: params.model,
+    auto_intent: params.auto_intent
   });
   return createHash("sha256").update(raw).digest("hex");
 }

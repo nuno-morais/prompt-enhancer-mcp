@@ -56,7 +56,12 @@ export const OPTIMIZE_PROMPT_TOOL = {
         description: "Show a token count and prompt efficiency analysis."
       },
       engine: { type: "string", description: "The underlying LLM engine to use (ollama or anthropic)" },
-      model: { type: "string", description: "Override for the model" }
+      model: { type: "string", description: "Override for the model" },
+      auto_intent: {
+        type: "boolean",
+        default: true,
+        description: "Automatically classify the draft's intent (web search / user artifact / brainstorm) and inject a matching instruction line; auto-enables brainstorm mode for ideation drafts when 'brainstorm' is not set."
+      }
     },
     required: ["draft"]
   }
@@ -76,6 +81,7 @@ export async function handleOptimizePrompt(
     show_stats?: boolean;
     engine?: string;
     model?: string;
+    auto_intent?: boolean;
   },
   progress?: {
     token: string | number;
@@ -92,7 +98,7 @@ export async function handleOptimizePrompt(
     draft: args.draft,
     context: args.context,
     target_model: args.target_model ?? preset.target_model ?? "generic" as TargetModel,
-    brainstorm: args.brainstorm ?? preset.brainstorm ?? false,
+    brainstorm: args.brainstorm ?? preset.brainstorm,
     explain: args.explain ?? preset.explain ?? false,
     interactive: args.interactive ?? true, // default to true
     session_id: args.session_id,
@@ -101,14 +107,15 @@ export async function handleOptimizePrompt(
     show_stats: args.show_stats ?? preset.show_stats ?? false,
     engine: (args.engine as "ollama" | "anthropic") ?? preset.engine ?? DEFAULT_ENGINE,
     model: args.model ?? preset.model ?? (
-      (args.engine === "anthropic" || preset.engine === "anthropic") 
-        ? "claude-3-5-haiku-latest" 
+      (args.engine === "anthropic" || preset.engine === "anthropic")
+        ? "claude-3-5-haiku-latest"
         : DEFAULT_MODEL
-    )
+    ),
+    auto_intent: args.auto_intent ?? preset.auto_intent ?? true
   };
 
   const useCache = !params.session_id;
-  const cacheKey = useCache ? getCacheKey(params) : null;
+  const cacheKey = useCache ? getCacheKey({ ...params, brainstorm: params.brainstorm ?? null }) : null;
   if (cacheKey) {
     const cached = getCached(cacheKey);
     if (cached) {
@@ -140,7 +147,10 @@ export async function handleOptimizePrompt(
     content.push({ type: "text", text: result.stats });
   }
 
-  const lintWarnings = lintOptimizedPrompt(params.draft, params.context, result.optimizedPrompt);
+  const expectedPlaceholder = result.intentResult?.intent === "user_artifact"
+    ? `{{${result.intentResult.artifactName ?? "artifact"}}}`
+    : undefined;
+  const lintWarnings = lintOptimizedPrompt(params.draft, params.context, result.optimizedPrompt, expectedPlaceholder);
   if (lintWarnings.length > 0) {
     content.push({
       type: "text",

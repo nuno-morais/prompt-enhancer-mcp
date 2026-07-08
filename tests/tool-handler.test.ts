@@ -72,7 +72,7 @@ describe("handleOptimizePrompt", () => {
     expect(generateSpy).toHaveBeenCalledWith({
       draft: "hello world",
       target_model: "generic",
-      brainstorm: false,
+      brainstorm: undefined,
       explain: false,
       interactive: true,
       engine: "ollama",
@@ -80,7 +80,8 @@ describe("handleOptimizePrompt", () => {
       auto_cot: true,
       auto_guardrails: true,
       show_stats: false,
-      session_id: undefined
+      session_id: undefined,
+      auto_intent: true
     });
   });
 
@@ -110,7 +111,8 @@ describe("handleOptimizePrompt", () => {
       auto_cot: true,
       auto_guardrails: true,
       show_stats: false,
-      session_id: undefined
+      session_id: undefined,
+      auto_intent: true
     });
   });
 
@@ -147,7 +149,8 @@ describe("handleOptimizePrompt", () => {
       auto_cot: true,
       auto_guardrails: true,
       show_stats: false,
-      session_id: undefined
+      session_id: undefined,
+      auto_intent: true
     });
   });
 
@@ -163,7 +166,7 @@ describe("handleOptimizePrompt", () => {
     expect(generateSpy).toHaveBeenCalledWith({
       draft: "hello world",
       target_model: "generic",
-      brainstorm: false,
+      brainstorm: undefined,
       explain: false,
       interactive: true,
       engine: "ollama",
@@ -172,7 +175,8 @@ describe("handleOptimizePrompt", () => {
       auto_guardrails: true,
       show_stats: false,
       session_id: undefined,
-      context: "This is a project about widgets."
+      context: "This is a project about widgets.",
+      auto_intent: true
     });
   });
 
@@ -289,5 +293,50 @@ describe("handleOptimizePrompt", () => {
 
     expect(first.content[0].text).toBe("v1");
     expect(second.content[0].text).toBe("v2"); // would be "v1" if cached
+  });
+});
+
+describe("auto_intent parameter", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(presetModule, "loadPreset").mockReturnValue({});
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("defaults auto_intent to true and passes brainstorm as undefined when unset", async () => {
+    const spy = vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "optimized text"
+    });
+
+    await handleOptimizePrompt({ draft: "some draft" });
+
+    const passed = spy.mock.calls[0][0];
+    expect(passed.auto_intent).toBe(true);
+    expect(passed.brainstorm).toBeUndefined();
+  });
+
+  it("passes explicit brainstorm through unchanged", async () => {
+    const spy = vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "optimized text"
+    });
+
+    await handleOptimizePrompt({ draft: "some draft", brainstorm: false });
+
+    expect(spy.mock.calls[0][0].brainstorm).toBe(false);
+  });
+
+  it("forwards auto_intent: false", async () => {
+    const spy = vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "optimized text"
+    });
+
+    await handleOptimizePrompt({ draft: "some draft", auto_intent: false });
+
+    expect(spy.mock.calls[0][0].auto_intent).toBe(false);
   });
 });

@@ -7,7 +7,8 @@ describe("getCacheKey", () => {
     target_model: "generic" as const,
     brainstorm: false,
     explain: false,
-    model: "test-model"
+    model: "test-model",
+    auto_intent: true
   };
 
   it("is deterministic for identical params", () => {
@@ -42,6 +43,26 @@ describe("getCacheKey", () => {
 
   it("treats undefined context and absent context as the same key", () => {
     expect(getCacheKey(baseParams)).toBe(getCacheKey({ ...baseParams, context: undefined }));
+  });
+});
+
+describe("getCacheKey with auto_intent", () => {
+  const base = {
+    draft: "d",
+    target_model: "generic" as const,
+    brainstorm: false as boolean | null,
+    explain: false,
+    model: "m"
+  };
+
+  it("differs when auto_intent differs", () => {
+    expect(getCacheKey({ ...base, auto_intent: true }))
+      .not.toBe(getCacheKey({ ...base, auto_intent: false }));
+  });
+
+  it("differs between explicit brainstorm false and unset (null)", () => {
+    expect(getCacheKey({ ...base, auto_intent: true }))
+      .not.toBe(getCacheKey({ ...base, brainstorm: null, auto_intent: true }));
   });
 });
 

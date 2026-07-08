@@ -10,14 +10,22 @@ const META_COMMENTARY_PATTERNS = [
 export function lintOptimizedPrompt(
   draft: string,
   context: string | undefined,
-  optimizedPrompt: string
+  optimizedPrompt: string,
+  expectedPlaceholder?: string
 ): string[] {
   const warnings: string[] = [];
 
-  const placeholders = [...new Set(optimizedPrompt.match(/\{\{[a-zA-Z0-9_]+\}\}/g) ?? [])];
+  const placeholders = [...new Set(optimizedPrompt.match(/\{\{[a-zA-Z0-9_]+\}\}/g) ?? [])]
+    .filter(p => p !== expectedPlaceholder);
   if (placeholders.length > 0) {
     warnings.push(
       `Unresolved placeholder(s) ${placeholders.join(", ")} — fill these in before using the prompt.`
+    );
+  }
+
+  if (expectedPlaceholder && !optimizedPrompt.includes(expectedPlaceholder)) {
+    warnings.push(
+      `The intent classifier asked for ${expectedPlaceholder}, but it was dropped from the final prompt — the artifact request may be missing.`
     );
   }
 

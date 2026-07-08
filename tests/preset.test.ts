@@ -75,6 +75,13 @@ describe("loadPreset", () => {
     expect(loadPreset(tempDir)).toEqual({ target_model: "claude" });
   });
 
+  it("loads auto_intent from the preset file", () => {
+    tempDir = mkdtempSync(join(tmpdir(), "preset-test-"));
+    writeFileSync(join(tempDir, ".prompt-enhancer.json"), JSON.stringify({ auto_intent: false }));
+
+    expect(loadPreset(tempDir).auto_intent).toBe(false);
+  });
+
   it("accepts every current TargetModel value in a preset file", () => {
     tempDir = mkdtempSync(join(tmpdir(), "preset-test-"));
     const targetModels: TargetModel[] = ["generic", "claude", "gpt4o", "gemini"];

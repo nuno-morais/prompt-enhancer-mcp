@@ -83,3 +83,21 @@ describe("lintOptimizedPrompt — meta-commentary", () => {
     expect(lintOptimizedPrompt("draft", undefined, "Summarize the text.")).toEqual([]);
   });
 });
+
+describe("expected artifact placeholder", () => {
+  it("warns when the expected placeholder is missing from the output", () => {
+    const warnings = lintOptimizedPrompt("draft", undefined, "A prompt without it.", "{{pipeline_config}}");
+    expect(warnings.some(w => w.includes("{{pipeline_config}}") && w.includes("dropped"))).toBe(true);
+  });
+
+  it("does not flag the expected placeholder as unresolved when present", () => {
+    const warnings = lintOptimizedPrompt("draft", undefined, "Provide {{pipeline_config}} please.", "{{pipeline_config}}");
+    expect(warnings).toHaveLength(0);
+  });
+
+  it("still flags other placeholders as unresolved", () => {
+    const warnings = lintOptimizedPrompt("draft", undefined, "Use {{pipeline_config}} and {{other}}.", "{{pipeline_config}}");
+    expect(warnings.some(w => w.includes("{{other}}"))).toBe(true);
+    expect(warnings.some(w => w.includes("Unresolved") && w.includes("{{pipeline_config}}"))).toBe(false);
+  });
+});

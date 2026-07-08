@@ -10,6 +10,7 @@ export type Preset = {
   brainstorm?: boolean;
   explain?: boolean;
   show_stats?: boolean;
+  auto_intent?: boolean;
 };
 
 const VALID_TARGET_MODELS: TargetModel[] = ["generic", "claude", "gpt4o", "gemini"];
@@ -70,6 +71,9 @@ export function loadPreset(startDir: string = process.cwd()): Preset {
   }
   if (typeof obj.show_stats === "boolean") {
     preset.show_stats = obj.show_stats;
+  }
+  if (typeof obj.auto_intent === "boolean") {
+    preset.auto_intent = obj.auto_intent;
   }
 
   return preset;
