@@ -55,6 +55,11 @@ export const OPTIMIZE_PROMPT_TOOL = {
         default: false,
         description: "Show a token count and prompt efficiency analysis."
       },
+      show_diff: {
+        type: "boolean",
+        default: false,
+        description: "Show a line diff of what the critic pass changed (first draft vs final prompt)."
+      },
       engine: { type: "string", description: "The underlying LLM engine to use (ollama or anthropic)" },
       model: { type: "string", description: "Override for the model" },
       auto_intent: {
@@ -79,6 +84,7 @@ export async function handleOptimizePrompt(
     auto_cot?: boolean;
     auto_guardrails?: boolean;
     show_stats?: boolean;
+    show_diff?: boolean;
     engine?: string;
     model?: string;
     auto_intent?: boolean;
@@ -105,6 +111,7 @@ export async function handleOptimizePrompt(
     auto_cot: args.auto_cot ?? true,
     auto_guardrails: args.auto_guardrails ?? true,
     show_stats: args.show_stats ?? preset.show_stats ?? false,
+    show_diff: args.show_diff ?? preset.show_diff ?? false,
     engine: (args.engine as "ollama" | "anthropic") ?? preset.engine ?? DEFAULT_ENGINE,
     model: args.model ?? preset.model ?? (
       (args.engine === "anthropic" || preset.engine === "anthropic")
@@ -145,6 +152,13 @@ export async function handleOptimizePrompt(
 
   if (params.show_stats && result.stats) {
     content.push({ type: "text", text: result.stats });
+  }
+
+  if (params.show_diff && result.diff) {
+    content.push({
+      type: "text",
+      text: `🔍 **Critic pass diff (first draft → final):**\n\`\`\`diff\n${result.diff}\n\`\`\``
+    });
   }
 
   const expectedPlaceholder = result.intentResult?.intent === "user_artifact"

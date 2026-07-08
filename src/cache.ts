@@ -23,6 +23,7 @@ export function getCacheKey(params: {
   explain: boolean;
   model: string;
   auto_intent: boolean;
+  show_diff?: boolean;
 }): string {
   const raw = JSON.stringify({
     draft: params.draft,
@@ -31,7 +32,8 @@ export function getCacheKey(params: {
     brainstorm: params.brainstorm,
     explain: params.explain,
     model: params.model,
-    auto_intent: params.auto_intent
+    auto_intent: params.auto_intent,
+    show_diff: params.show_diff ?? false
   });
   return createHash("sha256").update(raw).digest("hex");
 }

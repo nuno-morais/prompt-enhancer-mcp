@@ -80,6 +80,7 @@ describe("handleOptimizePrompt", () => {
       auto_cot: true,
       auto_guardrails: true,
       show_stats: false,
+      show_diff: false,
       session_id: undefined,
       auto_intent: true
     });
@@ -111,6 +112,7 @@ describe("handleOptimizePrompt", () => {
       auto_cot: true,
       auto_guardrails: true,
       show_stats: false,
+      show_diff: false,
       session_id: undefined,
       auto_intent: true
     });
@@ -149,6 +151,7 @@ describe("handleOptimizePrompt", () => {
       auto_cot: true,
       auto_guardrails: true,
       show_stats: false,
+      show_diff: false,
       session_id: undefined,
       auto_intent: true
     });
@@ -174,6 +177,7 @@ describe("handleOptimizePrompt", () => {
       auto_cot: true,
       auto_guardrails: true,
       show_stats: false,
+      show_diff: false,
       session_id: undefined,
       context: "This is a project about widgets.",
       auto_intent: true
@@ -338,5 +342,36 @@ describe("auto_intent parameter", () => {
     await handleOptimizePrompt({ draft: "some draft", auto_intent: false });
 
     expect(spy.mock.calls[0][0].auto_intent).toBe(false);
+  });
+
+  it("appends a diff block when show_diff is true and a diff exists", async () => {
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+    vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "final",
+      diff: "- a\n+ b"
+    });
+
+    const result = await handleOptimizePrompt({
+      draft: "diff block draft",
+      show_diff: true,
+      interactive: false
+    });
+
+    const diffBlock = result.content.find(b => b.text.includes("Critic pass diff"));
+    expect(diffBlock).toBeDefined();
+    expect(diffBlock!.text).toContain("- a\n+ b");
+  });
+
+  it("does not append a diff block when show_diff is false", async () => {
+    vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+    vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+    vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+      optimizedPrompt: "final"
+    });
+
+    const result = await handleOptimizePrompt({ draft: "no diff draft", interactive: false });
+
+    expect(result.content.find(b => b.text.includes("Critic pass diff"))).toBeUndefined();
   });
 });
