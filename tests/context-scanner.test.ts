@@ -26,7 +26,11 @@ describe("scanProject", () => {
   beforeEach(() => {
     mockExecResponse = { stdout: " M src/index.ts\n", stderr: "" };
     mockExecError = null;
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    (cp.exec as any)[util.promisify.custom].mockImplementation(async () => {
+      if (mockExecError) throw mockExecError;
+      return mockExecResponse;
+    });
   });
 
   it("gathers framework and git status", async () => {

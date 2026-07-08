@@ -17,7 +17,7 @@ export async function scanProject(cwd: string): Promise<string | null> {
       contextParts.push(`Dependencies/Frameworks: ${deps.slice(0, 10).join(", ")}`);
     }
   } catch (e: any) {
-    if (e.code !== 'ENOENT') {
+    if (e.code !== 'ENOENT' && !(e instanceof SyntaxError)) {
       console.error(e);
     }
     // Ignore ENOENT and parsing errors
@@ -30,7 +30,7 @@ export async function scanProject(cwd: string): Promise<string | null> {
       contextParts.push(`Modified files:\n${statusStr}`);
     }
   } catch (e: any) {
-    const isGitRepoError = e.status === 128 || (e.message && e.message.includes('not a git repo'));
+    const isGitRepoError = e.code === 128 || (e.message && e.message.includes('not a git repo'));
     if (!isGitRepoError) {
       console.error(e);
     }
