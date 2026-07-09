@@ -13,6 +13,33 @@ response cache, and per-project default presets.
 
 **Model Agnostic:** The server supports both local execution via **Ollama** (Llama 3, Mistral, Qwen, Phi, etc.) and cloud execution via the **Anthropic API** (Claude 3.5 Haiku, Sonnet, etc.). You can configure the engine and model per project or per request!
 
+## What it does
+
+Input (`draft`):
+
+```
+quero um resumo do texto mas curto
+```
+
+Output (`optimize_prompt` result):
+
+```
+Please provide a short, concise summary of the following text.
+Focus only on the main points and key information—omit minor
+details or repetition. Keep the summary brief (2-4 sentences).
+```
+
+The rough, ambiguous draft becomes a structured, unambiguous instruction the paid model can execute correctly on the first try — no back-and-forth, no wasted tokens on a misinterpreted request.
+
+## Quickstart (30 seconds)
+
+1. Register the server with your MCP client — see [Register with an MCP client](#register-with-an-mcp-client) below. The fastest path is Claude Desktop or Claude Code with the `npx` config; no cloning or building required.
+2. Have Ollama running locally with a model pulled (see [Prerequisites](#prerequisites)), or set `ANTHROPIC_API_KEY` instead.
+3. In your MCP client, call `check_health` to confirm the engine is reachable.
+4. Call `optimize_prompt` with a rough `draft` (see example above) and use the result.
+
+If step 3 reports a problem, see [Troubleshooting](#troubleshooting).
+
 ## Prerequisites
 
 - Node.js 20+
@@ -362,6 +389,18 @@ You can check if the connected client supports sampling by calling the `check_he
   ("make it shorter", "the MCP here is Model Context Protocol"). The server
   keeps the conversation and refines the previous prompt instead of starting
   over. Session requests always bypass the response cache.
+
+## Troubleshooting
+
+Call `check_health` first — it diagnoses the configured engine and reports the fix directly. Common cases:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Could not reach Ollama at http://localhost:11434` | Ollama isn't running | Run `ollama serve`, or set `OLLAMA_BASE_URL` if it runs elsewhere. |
+| `Ollama is reachable, but model 'X' is not pulled` | The configured model isn't installed | Run `ollama pull X` (or change `model` to one you have). |
+| `Anthropic engine not configured: ANTHROPIC_API_KEY environment variable is not set` | `engine: "anthropic"` with no key | Set `ANTHROPIC_API_KEY` in your shell or the MCP server's `env` config. |
+| `--engine sampling` fails on the CLI | Sampling only works through an MCP client | Use it via `optimize_prompt` from Claude Desktop/Code, not the `mcp` CLI. |
+| Optimized prompt has a `⚠️ Prompt lint warnings` block | The critic pass left an unresolved placeholder, an unsupported acronym expansion, or leaked meta-commentary | Re-run with more `context` (or a `glossary` in `.prompt-enhancer.json`) so the model has enough information to resolve it. |
 
 ## Manual testing
 
