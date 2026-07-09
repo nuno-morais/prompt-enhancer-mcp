@@ -1,6 +1,7 @@
 ---
 name: draft-prompt
 description: Use when the user wants help turning a rough idea into a prompt — e.g. "help me write a prompt for...", "I want to brainstorm...", "draft a prompt to...", "I need to figure out how to ask for...". Runs a short one-question-at-a-time interview, then calls the optimize_prompt MCP tool with the assembled draft and context.
+argument-hint: ""
 ---
 
 # draft-prompt
@@ -9,6 +10,11 @@ Interview the user to build a solid `draft` (and `context`) before calling the
 `optimize_prompt` MCP tool. Ask ONE question at a time. Prefer multiple-choice
 phrasing when there's a natural small set of answers; open-ended is fine when
 there isn't.
+
+This skill takes no arguments. Whether or not the user typed anything after
+`/draft-prompt`, do NOT ask a generic freeform question like "what's your
+idea?" or combine multiple questions into one. Start immediately with Step
+1's classification question below, worded exactly as written.
 
 ## Step 1: Classify
 
