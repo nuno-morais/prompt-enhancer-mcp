@@ -1,8 +1,0 @@
-{
-  "hook_event_name": "UserPromptSubmit",
-  "prompt": "Please write a concise, bullet‑point summary of the recent advancements in AI alignment research, focusing on safety metrics and open challenges.",
-  "session_id": "test-session-001",
-  "transcript_path": "/tmp/claude-transcript.log",
-  "cwd": "/Users/<username>/Projects/prompt-enhancer-mcp",
-  "permission_mode": "read"
-}

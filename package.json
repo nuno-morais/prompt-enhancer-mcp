@@ -24,12 +24,9 @@
     "prompt-enhancer-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc && npm run fix-bin-perms",
+    "build": "rm -rf dist && tsc && npm run fix-bin-perms",
     "fix-bin-perms": "chmod +x dist/bin/mcp.js dist/index.js",
     "start": "node dist/index.js",
-    "start-http": "node dist/server.js",
-    "proxy": "node bin/http-proxy.js",
-    "test-proxy": "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"optimize_prompt\",\"params\":{\"draft\":\"quero um resumo curto\"}}' | node bin/http-proxy.js",
     "test": "vitest run",
     "prepare": "husky"
   },
