@@ -171,12 +171,8 @@ Optimizes a rough prompt draft using a local LLM before sending it to a paid API
   "brainstorm": false,
   "explain": false,
   "session_id": "my-iteration-1",
-  "auto_cot": true,
-  "auto_guardrails": true,
-  "auto_intent": true,
-  "auto_repair": true,
-  "show_stats": true,
-  "show_diff": false,
+  "auto": true,
+  "verbosity": "quiet",
   "engine": "ollama",
   "model": "llama3.1:8b"
 }
@@ -213,51 +209,26 @@ Judge-grades a prompt 1-5 on five dimensions: clarity, specificity, structure, g
 
 Only `prompt` is required. Comparison mode shows per-dimension deltas and a winner verdict.
 
-## HTTP API
-
-The optimizer can be accessed over HTTP, which is handy for scripts, editors, or any tool that can issue a simple `curl` request.
-
-```bash
-curl -X POST http://localhost:3000/optimize \
-  -H "Content-Type: application/json" \
-  -d '{
-    "draft": "quero um resumo do texto mas curto",
-    "target_model": "claude",
-    "brainstorm": false,
-    "explain": false
-  }'
-```
-
-The response is a JSON object with a `content` array, exactly like the MCP tool returns. Example response:
-
-```json
-{
-  "content": [
-    { "type": "text", "text": "<optimized‑prompt>" },
-    { "type": "text", "text": "<optional‑explanation>" }
-  ]
-}
-```
-
-Set the port with the `MCP_HTTP_PORT` environment variable (default `3000`). The endpoint is `POST /optimize`. No authentication or rate‑limit is applied – it is intended for local development use only.
+### optimize_prompt parameters
 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `draft` | string | — (required) | The rough idea to turn into an optimized prompt. |
 | `target_model` | `"generic"` \| `"claude"` \| `"gpt4o"` \| `"gemini"` | `"generic"` | Which API/format the optimized prompt is written for — `claude` and `gemini` use XML tags (per Google's own Gemini prompting guidance), `gpt4o` requests a JSON response, `generic` is plain-language. |
 | `brainstorm` | boolean | `false` | When true, the optimized prompt instructs the target model to answer via multiple distinct personas/perspectives (useful for open-ended ideation). |
-| `explain` | boolean | `false` | When true, the response includes a 2nd text block: a 1-line summary of what the critic pass changed. |
-| `auto_cot` | boolean | `true` | Automatically injects a `<thinking>` block tailored to the `target_model` for complex requests, improving reasoning. |
-| `auto_guardrails` | boolean | `true` | Automatically detects potential hallucination risks and injects a strict `<negative_constraints>` block (`DO NOT...`). |
-| `auto_intent` | boolean | `true` | Classifies the draft's intent and injects a matching instruction line ("search the web…", "ask the user for {{artifact}}…"). When `brainstorm` is not set, an ideation draft auto-enables brainstorm mode. |
-| `auto_repair` | boolean | `true` | Automatically fixes repairable lint findings (e.g. wrong acronym expansions covered by the glossary) with one extra critic pass. Unfixable findings are still surfaced as warnings. |
-| `show_stats` | boolean | `false` | Returns an additional text block detailing token expansion and efficiency metrics. |
+| `verbosity` | `"quiet"` \| `"explain"` \| `"verbose"` | `"quiet"` | How much detail comes back with the prompt: `quiet` = prompt only, `explain` = plus a 1-line summary of what the critic pass changed, `verbose` = plus token/efficiency stats and a line diff of the critic pass. |
+| `auto` | boolean | `true` | Master switch for the automatic enhancement passes: Chain-of-Thought injection (`<thinking>` block for complex requests), anti-hallucination guardrails (`<negative_constraints>`), intent classification (injects a matching instruction line and auto-enables brainstorm for ideation drafts), and lint auto-repair (fixes repairable findings such as wrong acronym expansions with one extra critic pass). |
 | `interactive` | boolean | `true` | When true, instructs the MCP client NOT to answer the optimized prompt immediately, but instead present it to the user for approval. |
 | `engine` | `"ollama"` \| `"anthropic"` \| `"sampling"` | `"ollama"` | Choose the backend engine. If using `anthropic`, you must set the `ANTHROPIC_API_KEY` environment variable. The `sampling` engine is opt-in and only available when connected to an MCP client that advertises the sampling capability; see [Sampling engine](#sampling-engine) below. |
 | `model` | string | `qcwind/qwen...` | Override which model runs the pipeline. If `engine` is `anthropic`, defaults to `claude-3-5-haiku-latest`, but you can explicitly set it to `claude-3-5-sonnet-latest` or any other valid model! |
 
+The legacy fine-grained booleans (`auto_cot`, `auto_guardrails`, `auto_intent`,
+`auto_repair`, `explain`, `show_stats`, `show_diff`) are still accepted, both as
+tool arguments and in `.prompt-enhancer.json`, and override `auto`/`verbosity`
+per flag.
+
 The response is an MCP `content` array: one text block with the optimized
-prompt, plus a second text block when `explain: true`.
+prompt, plus extra text blocks depending on `verbosity`.
 
 ## Configuration
 

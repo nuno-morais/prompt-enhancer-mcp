@@ -529,4 +529,126 @@ describe("auto_intent parameter", () => {
     expect(warnBlock).toBeDefined();
     expect(warnBlock!.text).toContain("Unresolved placeholder {{doc}}");
   });
+
+  describe("collapsed flags: auto and verbosity", () => {
+    function spyGenerate() {
+      vi.spyOn(cacheModule, "getCached").mockReturnValue(undefined);
+      vi.spyOn(cacheModule, "setCached").mockImplementation(() => {});
+      return vi.spyOn(refineModule, "generateOptimizedPrompt").mockResolvedValue({
+        optimizedPrompt: "optimized text"
+      });
+    }
+
+    it("auto: false disables all auto_* passes", async () => {
+      const generateSpy = spyGenerate();
+
+      await handleOptimizePrompt({ draft: "hello world", auto: false, interactive: false });
+
+      expect(generateSpy).toHaveBeenCalledWith(expect.objectContaining({
+        auto_cot: false,
+        auto_guardrails: false,
+        auto_intent: false,
+        auto_repair: false
+      }));
+    });
+
+    it("an individual auto_* arg overrides the auto switch", async () => {
+      const generateSpy = spyGenerate();
+
+      await handleOptimizePrompt({ draft: "hello world", auto: false, auto_cot: true, interactive: false });
+
+      expect(generateSpy).toHaveBeenCalledWith(expect.objectContaining({
+        auto_cot: true,
+        auto_guardrails: false,
+        auto_intent: false,
+        auto_repair: false
+      }));
+    });
+
+    it("verbosity: 'verbose' enables explain, stats and diff", async () => {
+      const generateSpy = spyGenerate();
+
+      await handleOptimizePrompt({ draft: "hello world", verbosity: "verbose", interactive: false });
+
+      expect(generateSpy).toHaveBeenCalledWith(expect.objectContaining({
+        explain: true,
+        show_stats: true,
+        show_diff: true
+      }));
+    });
+
+    it("verbosity: 'explain' enables only the explanation", async () => {
+      const generateSpy = spyGenerate();
+
+      await handleOptimizePrompt({ draft: "hello world", verbosity: "explain", interactive: false });
+
+      expect(generateSpy).toHaveBeenCalledWith(expect.objectContaining({
+        explain: true,
+        show_stats: false,
+        show_diff: false
+      }));
+    });
+
+    it("an individual display arg overrides verbosity", async () => {
+      const generateSpy = spyGenerate();
+
+      await handleOptimizePrompt({ draft: "hello world", verbosity: "verbose", show_diff: false, interactive: false });
+
+      expect(generateSpy).toHaveBeenCalledWith(expect.objectContaining({
+        explain: true,
+        show_stats: true,
+        show_diff: false
+      }));
+    });
+
+    it("falls back to preset auto and verbosity when args don't specify them", async () => {
+      vi.spyOn(presetModule, "loadPreset").mockReturnValue({ auto: false, verbosity: "explain" });
+      const generateSpy = spyGenerate();
+
+      await handleOptimizePrompt({ draft: "hello world", interactive: false });
+
+      expect(generateSpy).toHaveBeenCalledWith(expect.objectContaining({
+        auto_cot: false,
+        auto_guardrails: false,
+        auto_intent: false,
+        auto_repair: false,
+        explain: true,
+        show_stats: false,
+        show_diff: false
+      }));
+    });
+
+    it("individual preset flags override preset verbosity/auto", async () => {
+      vi.spyOn(presetModule, "loadPreset").mockReturnValue({
+        auto: false,
+        auto_intent: true,
+        verbosity: "verbose",
+        show_diff: false
+      });
+      const generateSpy = spyGenerate();
+
+      await handleOptimizePrompt({ draft: "hello world", interactive: false });
+
+      expect(generateSpy).toHaveBeenCalledWith(expect.objectContaining({
+        auto_intent: true,
+        auto_cot: false,
+        explain: true,
+        show_stats: true,
+        show_diff: false
+      }));
+    });
+
+    it("an explicit verbosity arg beats individual preset display flags", async () => {
+      vi.spyOn(presetModule, "loadPreset").mockReturnValue({ explain: true, show_stats: true });
+      const generateSpy = spyGenerate();
+
+      await handleOptimizePrompt({ draft: "hello world", verbosity: "quiet", interactive: false });
+
+      expect(generateSpy).toHaveBeenCalledWith(expect.objectContaining({
+        explain: false,
+        show_stats: false,
+        show_diff: false
+      }));
+    });
+  });
 });

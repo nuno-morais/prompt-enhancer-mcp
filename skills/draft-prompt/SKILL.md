@@ -133,8 +133,8 @@ Then call the `optimize_prompt` MCP tool:
 }
 ```
 
-Leave all other parameters (`target_model`, `interactive`, `auto_cot`,
-`auto_guardrails`, `auto_intent`, `auto_repair`, etc.) at their defaults
+Leave all other parameters (`target_model`, `interactive`, `auto`,
+`verbosity`, etc.) at their defaults
 unless the user has said something in the interview that clearly implies an
 override (e.g. they named a specific target model). Do NOT add any extra
 confirmation step before this call — `optimize_prompt` already defaults to

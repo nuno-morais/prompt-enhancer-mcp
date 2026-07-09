@@ -3,11 +3,15 @@ import { join, dirname } from "node:path";
 import type { TargetModel } from "./config.js";
 import type { LLMEngine } from "./llm.js";
 
+export type Verbosity = "quiet" | "explain" | "verbose";
+
 export type Preset = {
   engine?: LLMEngine;
   target_model?: TargetModel;
   model?: string;
   brainstorm?: boolean;
+  auto?: boolean;
+  verbosity?: Verbosity;
   explain?: boolean;
   show_stats?: boolean;
   show_diff?: boolean;
@@ -15,6 +19,8 @@ export type Preset = {
   glossary?: Record<string, string>;
   auto_repair?: boolean;
 };
+
+const VALID_VERBOSITY: Verbosity[] = ["quiet", "explain", "verbose"];
 
 const VALID_TARGET_MODELS: TargetModel[] = ["generic", "claude", "gpt4o", "gemini"];
 const VALID_ENGINES: LLMEngine[] = ["ollama", "anthropic", "sampling"];
@@ -68,6 +74,12 @@ export function loadPreset(startDir: string = process.cwd()): Preset {
   }
   if (typeof obj.brainstorm === "boolean") {
     preset.brainstorm = obj.brainstorm;
+  }
+  if (typeof obj.auto === "boolean") {
+    preset.auto = obj.auto;
+  }
+  if (typeof obj.verbosity === "string" && VALID_VERBOSITY.includes(obj.verbosity as Verbosity)) {
+    preset.verbosity = obj.verbosity as Verbosity;
   }
   if (typeof obj.explain === "boolean") {
     preset.explain = obj.explain;

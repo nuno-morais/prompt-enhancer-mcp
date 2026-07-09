@@ -1,7 +1,7 @@
 import { DEFAULT_MODEL, DEFAULT_ENGINE, type TargetModel } from "./config.js";
 import { generateOptimizedPrompt, type ProgressCallback } from "./refine.js";
 import { getCacheKey, getCached, setCached, type CachedResult } from "./cache.js";
-import { loadPreset } from "./preset.js";
+import { loadPreset, type Verbosity } from "./preset.js";
 import { scanProject } from "./context-scanner.js";
 
 export const OPTIMIZE_PROMPT_TOOL = {
@@ -31,10 +31,11 @@ export const OPTIMIZE_PROMPT_TOOL = {
         default: false,
         description: "When true, instructs the target model to generate multiple personas/perspectives for open-ended brainstorming"
       },
-      explain: {
-        type: "boolean",
-        default: false,
-        description: "When true, includes a 1-line summary of what the critic pass changed, as a second content block"
+      verbosity: {
+        type: "string",
+        enum: ["quiet", "explain", "verbose"],
+        default: "quiet",
+        description: "How much detail to return alongside the optimized prompt: 'quiet' = prompt only, 'explain' = plus a 1-line summary of what the critic pass changed, 'verbose' = plus token stats and a critic-pass diff. The legacy explain/show_stats/show_diff booleans are still accepted and override this."
       },
       interactive: {
         type: "boolean",
@@ -45,38 +46,13 @@ export const OPTIMIZE_PROMPT_TOOL = {
         type: "string",
         description: "Optional ID to maintain conversation state. Provide a unique string. When making tweaks to a previously generated prompt, pass the same session_id."
       },
-      auto_cot: {
+      auto: {
         type: "boolean",
         default: true,
-        description: "Automatically inject Chain-of-Thought (CoT) instructions if the task is complex."
-      },
-      auto_guardrails: {
-        type: "boolean",
-        default: true,
-        description: "Automatically generate and inject negative constraints (anti-hallucination guardrails)."
-      },
-      show_stats: {
-        type: "boolean",
-        default: false,
-        description: "Show a token count and prompt efficiency analysis."
-      },
-      show_diff: {
-        type: "boolean",
-        default: false,
-        description: "Show a line diff of what the critic pass changed (first draft vs final prompt)."
+        description: "Master switch for all automatic enhancement passes: Chain-of-Thought injection, anti-hallucination guardrails, intent classification, and lint auto-repair. The legacy auto_cot/auto_guardrails/auto_intent/auto_repair booleans are still accepted and override this per pass."
       },
       engine: { type: "string", enum: ["ollama", "anthropic", "sampling"], description: "The underlying LLM engine to use" },
-      model: { type: "string", description: "Override for the model" },
-      auto_intent: {
-        type: "boolean",
-        default: true,
-        description: "Automatically classify the draft's intent (web search / user artifact / brainstorm) and inject a matching instruction line; auto-enables brainstorm mode for ideation drafts when 'brainstorm' is not set."
-      },
-      auto_repair: {
-        type: "boolean",
-        default: true,
-        description: "Automatically fix repairable lint findings (e.g. wrong acronym expansions covered by the glossary) with one extra critic pass. Unfixable findings are still surfaced as warnings."
-      }
+      model: { type: "string", description: "Override for the model" }
     },
     required: ["draft"]
   }
@@ -89,6 +65,8 @@ export async function handleOptimizePrompt(
     auto_context?: boolean;
     target_model?: TargetModel;
     brainstorm?: boolean;
+    auto?: boolean;
+    verbosity?: Verbosity;
     explain?: boolean;
     interactive?: boolean;
     session_id?: string;
@@ -114,6 +92,16 @@ export async function handleOptimizePrompt(
 
   const glossary = preset.glossary;
 
+  // Collapsed switches: `auto` covers the four auto_* passes, `verbosity` the
+  // three display flags. Precedence per flag: explicit individual arg >
+  // collapsed arg > individual preset key > collapsed preset key > default.
+  const verbosityFlags = (v?: Verbosity) =>
+    v === undefined
+      ? { explain: undefined, show_stats: undefined, show_diff: undefined }
+      : { explain: v !== "quiet", show_stats: v === "verbose", show_diff: v === "verbose" };
+  const argV = verbosityFlags(args.verbosity);
+  const presetV = verbosityFlags(preset.verbosity);
+
   let finalContext = args.context;
   if (args.auto_context) {
     try {
@@ -132,21 +120,21 @@ export async function handleOptimizePrompt(
     glossary,
     target_model: args.target_model ?? preset.target_model ?? "generic" as TargetModel,
     brainstorm: args.brainstorm ?? preset.brainstorm,
-    explain: args.explain ?? preset.explain ?? false,
+    explain: args.explain ?? argV.explain ?? preset.explain ?? presetV.explain ?? false,
     interactive: args.interactive ?? true, // default to true
     session_id: args.session_id,
-    auto_cot: args.auto_cot ?? true,
-    auto_guardrails: args.auto_guardrails ?? true,
-    show_stats: args.show_stats ?? preset.show_stats ?? false,
-    show_diff: args.show_diff ?? preset.show_diff ?? false,
+    auto_cot: args.auto_cot ?? args.auto ?? preset.auto ?? true,
+    auto_guardrails: args.auto_guardrails ?? args.auto ?? preset.auto ?? true,
+    show_stats: args.show_stats ?? argV.show_stats ?? preset.show_stats ?? presetV.show_stats ?? false,
+    show_diff: args.show_diff ?? argV.show_diff ?? preset.show_diff ?? presetV.show_diff ?? false,
     engine: (args.engine as "ollama" | "anthropic") ?? preset.engine ?? DEFAULT_ENGINE,
     model: args.model ?? preset.model ?? (
       (args.engine === "anthropic" || preset.engine === "anthropic")
         ? "claude-3-5-haiku-latest"
         : DEFAULT_MODEL
     ),
-    auto_intent: args.auto_intent ?? preset.auto_intent ?? true,
-    auto_repair: args.auto_repair ?? preset.auto_repair ?? true
+    auto_intent: args.auto_intent ?? args.auto ?? preset.auto_intent ?? preset.auto ?? true,
+    auto_repair: args.auto_repair ?? args.auto ?? preset.auto_repair ?? preset.auto ?? true
   };
 
   const useCache = !params.session_id;
