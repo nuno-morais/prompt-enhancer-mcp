@@ -125,6 +125,38 @@ mcp score "Summarize the attached document in exactly 50 words."
 mcp score "Summarize the document." --baseline "Please provide a concise summary."
 ```
 
+### mcp skills install
+
+Installs the bundled `draft-prompt` Claude Code skill (an interactive
+interview that assembles a `draft`/`context` pair and calls `optimize_prompt`
+for you) so it's available as `/draft-prompt` in Claude Code.
+
+**Usage:**
+```bash
+mcp skills install [--project]
+```
+
+**Options:**
+| Flag | Description |
+|------|-------------|
+| `--project` | Install into `./.claude/skills/draft-prompt/` (current project) instead of `~/.claude/skills/draft-prompt/` (user-level, available in every project). |
+
+Re-running the command always overwrites the destination file with the
+bundled version — this is also how you pick up skill updates after
+upgrading the package. There is no separate uninstall command; remove the
+skill with `rm -rf ~/.claude/skills/draft-prompt` (or the project-scoped
+path).
+
+**Exit Codes:**
+- `0` — Installed successfully.
+- `2` — Install failed (e.g. permission error writing to the destination).
+
+**Example:**
+```bash
+$ mcp skills install
+Installed draft-prompt skill to /Users/you/.claude/skills/draft-prompt/SKILL.md
+```
+
 ## Exit Codes
 
 ### mcp (root optimize command)

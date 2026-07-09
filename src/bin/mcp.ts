@@ -7,6 +7,7 @@ import { loadPreset } from '../preset.js';
 import { readFileSync } from 'node:fs';
 import { mergeOllamaHeaderFlags, collectHeader } from './ollama-flags.js';
 import { SAMPLING_UNSUPPORTED_MESSAGE } from '../sampling-client.js';
+import { installSkill } from './skills-install.js';
 
 async function getStdin(): Promise<string> {
   return new Promise((resolve) => {
@@ -71,6 +72,24 @@ export function buildProgram(): commander.Command {
         const res = await handleScorePrompt({ prompt, baseline: cmdOpts.baseline, engine: cmdOpts.engine, model: cmdOpts.model });
         console.log(res.content[0].text);
       } catch (e) { console.error('Scoring failed:', e); process.exit(1); }
+    });
+
+  const skillsCmd = program
+    .command('skills')
+    .description('Manage Claude Code skills bundled with this package');
+
+  skillsCmd
+    .command('install')
+    .description('Install the draft-prompt skill (default: ~/.claude/skills, or --project for ./.claude/skills)')
+    .option('--project', 'Install into the current project instead of the user home directory')
+    .action((cmdOpts: any) => {
+      try {
+        const dest = installSkill({ project: cmdOpts.project });
+        console.log(`Installed draft-prompt skill to ${dest}`);
+      } catch (e) {
+        console.error('Skill install failed:', e);
+        process.exit(2);
+      }
     });
 
   return program;

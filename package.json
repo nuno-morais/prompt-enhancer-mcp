@@ -14,7 +14,8 @@
   },
   "files": [
     "dist",
-    "docs"
+    "docs",
+    "skills"
   ],
   "type": "module",
   "main": "dist/index.js",

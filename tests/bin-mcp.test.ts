@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { mergeOllamaHeaderFlags } from "../src/bin/ollama-flags.js";
 import { parseOpts, buildArgs, buildProgram } from "../src/bin/mcp.js";
+import { installSkill } from "../src/bin/skills-install.js";
+
+vi.mock("../src/bin/skills-install.js", () => ({
+  installSkill: vi.fn(() => "/fake/dest/SKILL.md"),
+}));
 
 async function runCliCapturingArgs(flags: string[]) {
   const opts = parseOpts(["node", "mcp", ...flags]);
@@ -96,5 +101,27 @@ describe("mcp CLI subcommands", () => {
 
     logSpy.mockRestore();
     exitSpy.mockRestore();
+  });
+});
+
+describe("mcp skills install", () => {
+  it("registers a skills command with an install subcommand", () => {
+    const program = buildProgram();
+    const skills = program.commands.find((c) => c.name() === "skills");
+    expect(skills).toBeDefined();
+    const install = skills!.commands.find((c) => c.name() === "install");
+    expect(install).toBeDefined();
+  });
+
+  it("calls installSkill with project: true when --project is passed", async () => {
+    const program = buildProgram();
+    await program.parseAsync(["node", "mcp", "skills", "install", "--project"]);
+    expect(installSkill).toHaveBeenCalledWith({ project: true });
+  });
+
+  it("calls installSkill with project: undefined when --project is omitted", async () => {
+    const program = buildProgram();
+    await program.parseAsync(["node", "mcp", "skills", "install"]);
+    expect(installSkill).toHaveBeenCalledWith({ project: undefined });
   });
 });
