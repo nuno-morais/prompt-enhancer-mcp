@@ -10,77 +10,13 @@ import { classifyIntent, buildIntentLine, injectIntentLine, type IntentResult } 
 import { diffLines } from "./diff.js";
 import { lintOptimizedPrompt, type LintWarning } from "./lint.js";
 import { formatGlossary } from "./preset.js";
+import { loadPromptTemplate } from "./prompt-templates.js";
 
-const CRITIC_SYSTEM_PROMPT = `
-You are a meticulous Prompt Engineering reviewer. You will receive the ORIGINAL
-user draft and a FIRST DRAFT of an optimized prompt produced from it, both
-delimited by tags below. Your job is to produce a FINAL, IMPROVED version of
-the optimized prompt.
+const CRITIC_SYSTEM_PROMPT = loadPromptTemplate("critic");
 
-Check the first draft for: ambiguity, missing context the target model would
-need, unstated assumptions, and requirements implied by the original draft but
-missing from the first draft. Fix what's wrong; keep what's already good.
-Do not change the prompt's overall format or structure (e.g. XML tags, JSON
-request, persona instructions) unless it is factually wrong for the stated goal.
+const EXPLAIN_SYSTEM_PROMPT = loadPromptTemplate("explain");
 
-STRICT RULES (must not be broken):
-1. Your response must contain ONLY the final optimized prompt, inside a
-   markdown code block with a language qualifier (e.g. \`\`\`text), and nothing else.
-2. NEVER write text before or after the code block.
-3. NEVER add commentary about what you changed. Just output the final prompt.
-
-<original_draft>
-{{original_draft}}
-</original_draft>
-
-<first_draft_prompt>
-{{first_draft_prompt}}
-</first_draft_prompt>
-
-Now output the final, improved prompt.
-`;
-
-const EXPLAIN_SYSTEM_PROMPT = `
-You are a technical writer. You will be given DRAFT A and DRAFT B, both
-versions of an optimized prompt for an AI model, delimited by tags below.
-Describe in ONE short sentence what changed from A to B. Focus on
-substantive differences (added constraints, fixed ambiguity, structural
-changes) — ignore purely cosmetic wording changes.
-
-STRICT RULES:
-1. Output ONLY the one-sentence summary. No preamble, no code block, no quotes.
-2. If A and B are effectively identical, say so explicitly (e.g. "No substantive changes.").
-
-<draft_a>
-{{draft_a}}
-</draft_a>
-
-<draft_b>
-{{draft_b}}
-</draft_b>
-`;
-
-const REPAIR_SYSTEM_PROMPT = `
-You are a prompt-repair specialist. You will receive an optimized PROMPT and a
-list of specific ISSUES found in it. Produce a corrected version.
-
-STRICT RULES (must not be broken):
-1. Fix EXACTLY the listed issues. Change NOTHING else — no rephrasing,
-   no restructuring, no additions beyond what the fixes require.
-2. Never invent content for {{placeholders}}; leave them untouched.
-3. Respond ONLY with the corrected prompt inside a markdown code block with a
-   language qualifier (e.g. \`\`\`text), and nothing else.
-
-<prompt>
-{{prompt}}
-</prompt>
-
-<issues>
-{{issues}}
-</issues>
-
-Now output the corrected prompt.
-`;
+const REPAIR_SYSTEM_PROMPT = loadPromptTemplate("repair");
 
 const SKIP_CRITIC_EXPLANATION = "No critic pass (trivial draft).";
 
