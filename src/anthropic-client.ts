@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { ChatRequest, ChatResponse } from "./llm.js";
+import { splitSystemMessage, type ChatRequest, type ChatResponse } from "./llm.js";
 
 let anthropicClient: Anthropic | null = null;
 
@@ -18,17 +18,11 @@ function getAnthropicClient() {
 export async function anthropicChat(request: ChatRequest): Promise<ChatResponse> {
   const client = getAnthropicClient();
   
-  // Extract system message if present
-  const systemMsg = request.messages.find(m => m.role === "system");
-  const systemText = systemMsg ? systemMsg.content : undefined;
-  
-  // Filter out system message to get only user/assistant messages for the messages array
-  const anthropicMessages = request.messages
-    .filter(m => m.role !== "system")
-    .map(m => ({
-      role: m.role as "user" | "assistant",
-      content: m.content
-    }));
+  const { system: systemText, rest } = splitSystemMessage(request.messages);
+  const anthropicMessages = rest.map(m => ({
+    role: m.role as "user" | "assistant",
+    content: m.content
+  }));
 
   const maxTokens = request.options.num_predict as number | undefined;
 

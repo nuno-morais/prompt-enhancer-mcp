@@ -1,4 +1,4 @@
-import type { ChatRequest, ChatResponse } from "./llm.js";
+import { splitSystemMessage, type ChatRequest, type ChatResponse } from "./llm.js";
 
 export const SAMPLING_UNSUPPORTED_MESSAGE =
   'This client doesn\'t support MCP sampling; use engine "ollama" or "anthropic".';
@@ -26,10 +26,8 @@ export async function samplingChat(request: ChatRequest): Promise<ChatResponse> 
   if (!samplingAvailable()) {
     throw new Error(SAMPLING_UNSUPPORTED_MESSAGE);
   }
-  const systemPrompt = request.messages.find(m => m.role === "system")?.content;
-  const messages = request.messages
-    .filter(m => m.role !== "system")
-    .map(m => ({ role: m.role, content: { type: "text", text: m.content } }));
+  const { system: systemPrompt, rest } = splitSystemMessage(request.messages);
+  const messages = rest.map(m => ({ role: m.role, content: { type: "text", text: m.content } }));
 
   const result = await registeredServer!.createMessage({
     messages,

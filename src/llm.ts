@@ -23,6 +23,18 @@ export type ChatResponse = {
   };
 };
 
+// Anthropic and MCP sampling both take the system prompt out-of-band rather
+// than as a message; this splits it off for those adapters.
+export function splitSystemMessage(messages: ChatMessage[]): {
+  system: string | undefined;
+  rest: ChatMessage[];
+} {
+  return {
+    system: messages.find(m => m.role === "system")?.content,
+    rest: messages.filter(m => m.role !== "system")
+  };
+}
+
 export async function generateChat(request: ChatRequest): Promise<ChatResponse> {
   if (request.engine === "sampling") {
     return samplingChat(request);
