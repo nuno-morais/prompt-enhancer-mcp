@@ -40,6 +40,13 @@ npm test
 The package ships a global `mcp` command that you can use from the terminal.
 See the full reference in **[docs/cli.md](docs/cli.md)**.
 
+### Install the draft-prompt skill
+
+If you use Claude Code, run `mcp skills install` to add the bundled
+`/draft-prompt` skill (a guided interview that builds a structured prompt
+before calling `optimize_prompt` for you). See
+[docs/cli.md#mcp-skills-install](docs/cli.md#mcp-skills-install) for options.
+
 ## Register with an MCP client
 
 You do not need to clone the repository to use this MCP server. You can run it directly via `npx`.
