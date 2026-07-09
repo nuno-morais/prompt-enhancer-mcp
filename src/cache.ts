@@ -21,6 +21,7 @@ export function getCacheKey(params: {
   target_model: TargetModel;
   brainstorm: boolean | null;
   explain: boolean;
+  engine: string;
   model: string;
   auto_intent: boolean;
   show_diff?: boolean;
@@ -31,6 +32,7 @@ export function getCacheKey(params: {
     target_model: params.target_model,
     brainstorm: params.brainstorm,
     explain: params.explain,
+    engine: params.engine,
     model: params.model,
     auto_intent: params.auto_intent,
     show_diff: params.show_diff ?? false

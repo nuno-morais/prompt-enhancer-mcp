@@ -157,7 +157,7 @@ If your client provides a UI to add tools instead of a configuration file, use t
 
 ## Calling the tools
 
-The server exposes three tools: `optimize_prompt`, `lint_prompt`, and `score_prompt`.
+The server exposes five tools: `optimize_prompt`, `lint_prompt`, `score_prompt`, `generate_system_prompt`, and `check_health`.
 
 ### optimize_prompt
 
@@ -169,7 +169,6 @@ Optimizes a rough prompt draft using a local LLM before sending it to a paid API
   "context": "MCP in this project means Model Context Protocol server",
   "target_model": "claude",
   "brainstorm": false,
-  "explain": false,
   "session_id": "my-iteration-1",
   "auto": true,
   "verbosity": "quiet",
@@ -209,11 +208,35 @@ Judge-grades a prompt 1-5 on five dimensions: clarity, specificity, structure, g
 
 Only `prompt` is required. Comparison mode shows per-dimension deltas and a winner verdict.
 
+### generate_system_prompt
+
+Drafts a system prompt for a given agent role, then auto-lints and auto-scores it before returning. Pass `rigor: "both"` to generate a terse and a guardrailed variant and get a judged head-to-head comparison.
+
+```json
+{
+  "role": "senior code reviewer",
+  "failure_modes": ["hallucinates file paths", "too verbose"],
+  "transcript": "Optional failed-conversation excerpt to diagnose from",
+  "rigor": "guardrailed",
+  "format": "xml",
+  "engine": "ollama",
+  "model": "llama3.1:8b"
+}
+```
+
+Only `role` is required. `rigor` is `"terse"`, `"guardrailed"` (default), or `"both"`; `format` is `"plain"` (default), `"xml"`, `"markdown"`, or `"json"`.
+
+### check_health
+
+Checks whether the configured LLM engine is reachable and ready to use — including whether the connected MCP client supports the `sampling` engine. Takes optional `engine` and `model` arguments; with no arguments it checks the configured/preset engine.
+
 ### optimize_prompt parameters
 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `draft` | string | — (required) | The rough idea to turn into an optimized prompt. |
+| `context` | string | — | Background/domain context (project description, glossary, relevant facts) used to interpret domain-specific terms in the draft. |
+| `auto_context` | boolean | `false` | Automatically scan the local project (package.json, git) for context and append it to any `context` you passed. |
 | `target_model` | `"generic"` \| `"claude"` \| `"gpt4o"` \| `"gemini"` | `"generic"` | Which API/format the optimized prompt is written for — `claude` and `gemini` use XML tags (per Google's own Gemini prompting guidance), `gpt4o` requests a JSON response, `generic` is plain-language. |
 | `brainstorm` | boolean | `false` | When true, the optimized prompt instructs the target model to answer via multiple distinct personas/perspectives (useful for open-ended ideation). |
 | `verbosity` | `"quiet"` \| `"explain"` \| `"verbose"` | `"quiet"` | How much detail comes back with the prompt: `quiet` = prompt only, `explain` = plus a 1-line summary of what the critic pass changed, `verbose` = plus token/efficiency stats and a line diff of the critic pass. |
@@ -274,18 +297,20 @@ You can check if the connected client supports sampling by calling the `check_he
 ## Behavior you should know about
 
 - **Self-critique pipeline:** every non-trivial request makes 2 Ollama calls
-  (draft, then critique/refine); `explain: true` adds a 3rd. A trivial draft
+  (draft, then critique/refine); `verbosity: "explain"` or `"verbose"` adds a 3rd. A trivial draft
   (`target_model: "generic"`, `brainstorm: false`, ≤15 words) skips the
   critique call entirely — 1 call instead of 2.
 - **Output lint:** every response is checked (no extra LLM calls) for
   unresolved `{{placeholders}}`, acronym expansions not supported by your
   draft/context, and leaked meta-commentary. Problems are appended as a
   `⚠️ Prompt lint warnings` block instead of silently shipping a broken prompt.
-- **Auto-repair:** when `auto_repair: true` (the default), `optimize_prompt` automatically fixes repairable lint findings (such as wrong acronym expansions covered by your `glossary`) with one extra critic pass. Unfixable findings are still surfaced as warnings. You can disable this with `auto_repair: false` or the `--no-auto-repair` CLI flag.
-- **Response cache:** identical requests (same `draft` + `target_model` +
-  `brainstorm` + `explain` + `model`) are cached in memory for 1 hour
-  (100-entry LRU). A cache hit returns instantly with zero Ollama calls.
-- **Intent classification:** unless `auto_intent: false`, classification tags
+- **Auto-repair:** part of the `auto` passes (on by default): `optimize_prompt` automatically fixes repairable lint findings (such as wrong acronym expansions covered by your `glossary`) with one extra critic pass. Unfixable findings are still surfaced as warnings. Disable it with `auto: false` (or the legacy `auto_repair: false` / `--no-auto-repair` CLI flag to turn off just this pass).
+- **Response cache:** identical requests (same `draft`, `context`,
+  `target_model`, `brainstorm`, `engine`, `model`, and output settings) are
+  cached in memory for 1 hour (100-entry LRU). A cache hit returns instantly
+  with zero LLM calls.
+- **Intent classification:** unless disabled (`auto: false` or the legacy
+  `auto_intent: false`), classification tags
   each draft as needing web search, a user-provided artifact, brainstorming,
   or nothing. It runs in parallel with the first draft when `brainstorm` is
   explicitly set; when `brainstorm` is left unset (the default), it runs
@@ -302,27 +327,27 @@ You can check if the connected client supports sampling by calling the `check_he
 
   For Ollama:
   ```json
-  { "target_model": "claude", "explain": true, "show_stats": true, "model": "mistral" }
+  { "target_model": "claude", "verbosity": "verbose", "model": "mistral" }
   ```
 
   For Anthropic (e.g. upgrading from Haiku to Sonnet):
   ```json
-  { "engine": "anthropic", "model": "claude-3-5-sonnet-latest", "target_model": "claude", "explain": true, "show_stats": true }
+  { "engine": "anthropic", "model": "claude-3-5-sonnet-latest", "target_model": "claude", "verbosity": "verbose" }
   ```
   
   With a glossary (authoritative term definitions for lint and auto-repair):
   ```json
-  { "target_model": "claude", "explain": true, "glossary": { "MCP": "Model Context Protocol", "LLM": "Large Language Model" } }
+  { "target_model": "claude", "verbosity": "explain", "glossary": { "MCP": "Model Context Protocol", "LLM": "Large Language Model" } }
   ```
   
   Any parameter can be set this way. An explicit argument in a tool call always overrides the preset.
   
   **Glossary:** the `glossary` key lets you define authoritative meanings for acronyms and terms in your project. When set, `lint_prompt` will flag acronym expansions that don't match the glossary, and `optimize_prompt` with `auto_repair: true` (the default) will automatically fix wrong expansions on a second pass. Example: `{"glossary": {"MCP": "Model Context Protocol"}}`.
-- **Diff view:** `show_diff: true` appends a line diff showing exactly what
+- **Diff view:** `verbosity: "verbose"` appends a line diff showing exactly what
   the self-critique pass changed between the first draft and the final
   prompt. Computed locally — no extra LLM calls. For trivial drafts (critic
   skipped) it reports that no diff is available.
-- **Background Processes (Zero-Cost Latency):** `auto_cot` and `auto_guardrails` are executed asynchronously in parallel with the first draft generation, causing **zero extra wait time**.
+- **Background Processes (Zero-Cost Latency):** the Chain-of-Thought and guardrail `auto` passes are executed asynchronously in parallel with the first draft generation, causing **zero extra wait time**.
 - **Progress notifications:** if your MCP client attaches a `progressToken`
   to its `tools/call` request, the server sends `notifications/progress`
   updates as the pipeline advances through its stages. Clients that don't

@@ -7,6 +7,7 @@ describe("getCacheKey", () => {
     target_model: "generic" as const,
     brainstorm: false,
     explain: false,
+    engine: "ollama",
     model: "test-model",
     auto_intent: true
   };
@@ -35,6 +36,10 @@ describe("getCacheKey", () => {
     expect(getCacheKey(baseParams)).not.toBe(getCacheKey({ ...baseParams, model: "other-model" }));
   });
 
+  it("changes when engine changes", () => {
+    expect(getCacheKey(baseParams)).not.toBe(getCacheKey({ ...baseParams, engine: "sampling" }));
+  });
+
   it("changes when context changes", () => {
     expect(getCacheKey(baseParams)).not.toBe(
       getCacheKey({ ...baseParams, context: "MCP = Model Context Protocol" })
@@ -52,6 +57,7 @@ describe("getCacheKey with auto_intent", () => {
     target_model: "generic" as const,
     brainstorm: false as boolean | null,
     explain: false,
+    engine: "ollama",
     model: "m"
   };
 

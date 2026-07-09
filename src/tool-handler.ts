@@ -1,4 +1,5 @@
 import { DEFAULT_MODEL, DEFAULT_ENGINE, type TargetModel } from "./config.js";
+import type { LLMEngine } from "./llm.js";
 import { generateOptimizedPrompt, type ProgressCallback } from "./refine.js";
 import { getCacheKey, getCached, setCached, type CachedResult } from "./cache.js";
 import { loadPreset, type Verbosity } from "./preset.js";
@@ -127,7 +128,7 @@ export async function handleOptimizePrompt(
     auto_guardrails: args.auto_guardrails ?? args.auto ?? preset.auto ?? true,
     show_stats: args.show_stats ?? argV.show_stats ?? preset.show_stats ?? presetV.show_stats ?? false,
     show_diff: args.show_diff ?? argV.show_diff ?? preset.show_diff ?? presetV.show_diff ?? false,
-    engine: (args.engine as "ollama" | "anthropic") ?? preset.engine ?? DEFAULT_ENGINE,
+    engine: (args.engine as LLMEngine) ?? preset.engine ?? DEFAULT_ENGINE,
     model: args.model ?? preset.model ?? (
       (args.engine === "anthropic" || preset.engine === "anthropic")
         ? "claude-3-5-haiku-latest"
