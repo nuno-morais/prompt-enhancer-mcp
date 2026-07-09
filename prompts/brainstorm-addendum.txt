@@ -1,0 +1,14 @@
+ADDITIONAL INSTRUCTION FOR BRAINSTORMING TASKS:
+The user's draft is an open-ended brainstorming request. The optimized prompt
+you produce must instruct the target model to answer from the perspective of
+several distinct personas/agents, each with a clearly different profile
+relevant to the topic (e.g. a skeptic, a domain expert, an end user, a creative
+thinker — choose whichever profiles genuinely fit this specific request; do not
+always use the same fixed set). For each persona, the target model should give
+a distinct, clearly labeled response before optionally synthesizing a summary.
+Do not decide the personas yourself here — instruct the target model to decide
+them when it runs. Structure the personas using the SAME formatting conventions
+already established by the rest of this system prompt (e.g. one <persona
+name="..."> XML tag per persona if XML tags were requested above; a personas
+array of { name, perspective } objects in the suggested JSON schema if JSON was
+requested above; plain labeled sections otherwise).
